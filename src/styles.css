@@ -4,7 +4,7 @@ html, body, #root { margin: 0; padding: 0; min-height: 100%; }
 body { background: #070e18; }
 
 .g-root{--ink:#070e18;--ink2:#0c1726;--ink3:#11233a;--line:#1d3553;--line2:#2a496e;
-  --cyan:#2ec9f0;--cyan2:#86e6ff;--orange:#ff7d1f;--gold:#e3a948;--txt:#eaf1f8;--mut:#8298b6;--red:#ff5d6c;
+  --cyan:#2ec9f0;--cyan2:#86e6ff;--orange:#ff7d1f;--gold:#e3a948;--txt:#eaf1f8;--mut:#8298b6;--red:#ff5d6c;--green:#26e08a;
   font-family:'Archivo',sans-serif;color:var(--txt);min-height:100vh;position:relative;overflow-x:hidden;
   background:
     radial-gradient(900px 500px at 12% -8%, rgba(46,201,240,.16), transparent 60%),
@@ -75,8 +75,19 @@ body { background: #070e18; }
 .g-rscore.none{color:var(--mut);font-family:'Archivo',sans-serif;font-size:15px;font-weight:700;letter-spacing:0;}
 .g-pts{font-family:'Anton';font-size:15px;flex:none;width:36px;text-align:center;}
 .g-pts.c{color:var(--cyan);} .g-pts.f{color:var(--orange);} .g-pts.o{color:var(--gold);} .g-pts.z{color:var(--mut);}
+.g-pts.won{color:var(--green);}
 .g-note{font-size:10.5px;text-align:center;margin-top:4px;letter-spacing:.6px;text-transform:uppercase;}
 .g-note.fin{color:var(--cyan);}
+/* Resultado cargado: el marcador del jugador se tinta segun los puntos del partido */
+.g-match.won .g-sc{opacity:1;border-color:var(--green);color:var(--green);background:rgba(38,224,138,.09);
+  box-shadow:0 0 0 1px rgba(38,224,138,.55),0 0 16px rgba(38,224,138,.3);}        /* exacto = +3 verde */
+.g-match.p2 .g-sc{opacity:1;border-color:var(--orange);color:var(--orange);background:rgba(255,125,31,.08);
+  box-shadow:0 0 0 1px rgba(255,125,31,.4),0 0 10px rgba(255,125,31,.16);}         /* diferencia = +2 naranja */
+.g-match.p1 .g-sc{opacity:1;border-color:var(--gold);color:var(--gold);background:rgba(227,169,72,.08);
+  box-shadow:0 0 0 1px rgba(227,169,72,.38),0 0 10px rgba(227,169,72,.15);}        /* signo = +1 dorado */
+.g-match.p0 .g-sc{opacity:1;border-color:var(--line);color:var(--mut);background:var(--ink2);}   /* errado = +0 gris */
+.g-note.fin.won{color:var(--green);font-weight:800;}
+.g-exact{color:var(--green);font-weight:800;}
 
 .g-btn{border:0;border-radius:13px;font-family:'Archivo';font-weight:800;font-size:15px;padding:15px 18px;cursor:pointer;
   text-transform:uppercase;letter-spacing:.6px;transition:.15s;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;}

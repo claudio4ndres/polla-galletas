@@ -354,9 +354,10 @@ function PredView({ picks, results, setPick, savePicks, amPaid }) {
           <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>
           {MATCHES.filter((m) => m.group === g).map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
+            const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
             return (
               <div key={m.id}>
-                <div className="g-match">
+                <div className={"g-match" + state}>
                   <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
                   <div className="g-sb">
                     <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[0]} onChange={(e) => setPick(m.id, 0, e.target.value)} />
@@ -364,9 +365,9 @@ function PredView({ picks, results, setPick, savePicks, amPaid }) {
                     <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[1]} onChange={(e) => setPick(m.id, 1, e.target.value)} />
                   </div>
                   <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
-                  <div className={"g-pts " + (pts === 3 ? "c" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
+                  <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
                 </div>
-                {r && <div className="g-note fin">Final {r[0]}–{r[1]} · J{m.jornada} · {m.day} jun</div>}
+                {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""} · J{m.jornada} · {m.day} jun</div>}
               </div>
             );
           })}
