@@ -1,0 +1,370 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "./supabaseClient";
+import {
+  MATCHES, GROUPS, flag, scorePick, DEADLINE,
+} from "./data";
+
+/* ============================ AUTH WRAPPER ============================ */
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  if (authLoading) {
+    return <div className="g-root"><div className="g-center"><div className="g-spin" /></div></div>;
+  }
+  if (!session) return <Login />;
+  return <Polla session={session} />;
+}
+
+/* ============================ LOGIN ============================ */
+function GoogleIcon() {
+  return (
+    <svg className="g-gicon" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.4 5.4 2.5 13.3l7.8 6.1C12.2 13.2 17.6 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.2-3.9 6.7-9.6 6.7-17z" />
+      <path fill="#FBBC05" d="M10.3 28.6c-.5-1.4-.8-2.9-.8-4.6s.3-3.2.8-4.6l-7.8-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.5 10.7l7.8-6.1z" />
+      <path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.5l-7.1-5.5c-2 1.3-4.6 2.1-8.2 2.1-6.4 0-11.8-3.7-13.7-9.1l-7.8 6.1C6.4 42.6 14.6 48 24 48z" />
+    </svg>
+  );
+}
+
+function Login() {
+  const signIn = () =>
+    supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+  return (
+    <div className="g-root"><div className="g-wrap">
+      <div className="g-hero">
+        <div className="g-logo"><img src="/logo.jpg" alt="Galletas FC" /></div>
+        <div className="g-eyebrow">⚽ Polla Mundial · 2026</div>
+        <div className="g-tag">Galletas FC · Fundado 10·04·2019 · Fútbol 7 &amp; 11</div>
+      </div>
+      <div className="g-card" style={{ marginTop: 10 }}>
+        <div className="g-disp" style={{ fontSize: 22, marginBottom: 6 }}>Entra a la polla</div>
+        <p className="g-help" style={{ marginBottom: 16 }}>
+          Inicia sesión con tu cuenta de Google. Tus pronósticos quedan guardados con tu nombre y
+          aparecerás en la tabla del equipo. Sin contraseñas nuevas que recordar.
+        </p>
+        <button className="g-btn google" onClick={signIn}><GoogleIcon /> Entrar con Google</button>
+      </div>
+      <Footer />
+    </div></div>
+  );
+}
+
+/* ============================ APP PRINCIPAL ============================ */
+function Polla({ session }) {
+  const user = session.user;
+  const googleName = prettyName(
+    user.user_metadata?.full_name || user.user_metadata?.name || user.email
+  );
+  const myEmail = user.email;
+
+  const [displayName, setDisplayName] = useState(googleName);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [tab, setTab] = useState("pred");
+  const [picks, setPicks] = useState({});
+  const [results, setResults] = useState({});
+  const [board, setBoard] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
+  const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(true);
+  const show = (m) => { setToast(m); setTimeout(() => setToast(""), 1900); };
+
+  // Carga inicial: mis pronósticos, resultados, y si soy admin.
+  useEffect(() => {
+    (async () => {
+      const [{ data: mine }, resMap, admin] = await Promise.all([
+        supabase.from("predictions").select("picks,name").eq("user_id", user.id).maybeSingle(),
+        loadResults(),
+        checkAdmin(myEmail),
+      ]);
+      if (mine?.picks) setPicks(mine.picks);
+      // Respeta el nombre guardado solo si es un nombre de verdad (no un correo); así no pisa lo que cada uno editó.
+      if (mine?.name && !mine.name.includes("@")) setDisplayName(mine.name);
+      setResults(resMap);
+      setIsAdmin(admin);
+      setLoading(false);
+    })();
+  }, [user.id, myEmail]);
+
+  const setPick = (mid, idx, val) => {
+    const v = val === "" ? "" : Math.max(0, Math.min(20, parseInt(val) || 0));
+    setPicks((p) => { const c = p[mid] ? [...p[mid]] : ["", ""]; c[idx] = v; return { ...p, [mid]: c }; });
+  };
+
+  const savePicks = async () => {
+    const { error } = await supabase.from("predictions").upsert({
+      user_id: user.id, name: displayName, picks, updated_at: new Date().toISOString(),
+    });
+    show(error ? "Error al guardar" : "✓ Pronósticos guardados");
+  };
+
+  const saveName = async () => {
+    const clean = nameDraft.trim().replace(/\s+/g, " ").slice(0, 40);
+    if (!clean) { show("Escribe un nombre"); return; }
+    setDisplayName(clean);
+    setEditingName(false);
+    const { error } = await supabase.from("predictions").upsert({
+      user_id: user.id, name: clean, picks, updated_at: new Date().toISOString(),
+    });
+    show(error ? "Error al guardar el nombre" : "✓ Nombre actualizado");
+  };
+
+  const setResult = async (mid, idx, val) => {
+    const v = val === "" ? "" : Math.max(0, Math.min(20, parseInt(val) || 0));
+    const next = { ...results };
+    const c = next[mid] ? [...next[mid]] : ["", ""];
+    c[idx] = v; next[mid] = c;
+    setResults(next);
+    const [h, a] = c;
+    if (h !== "" && a !== "") {
+      await supabase.from("results").upsert({ match_id: mid, home: +h, away: +a, updated_at: new Date().toISOString() });
+    } else {
+      await supabase.from("results").delete().eq("match_id", mid);
+    }
+  };
+
+  const loadBoard = useCallback(async () => {
+    const [{ data: preds }, resMap] = await Promise.all([
+      supabase.from("predictions").select("user_id,name,picks"),
+      loadResults(),
+    ]);
+    setResults(resMap);
+    const rows = (preds || []).map((p) => {
+      let total = 0, exact = 0, hits = 0;
+      for (const m of MATCHES) {
+        const r = resMap[m.id]; if (!r) continue;
+        const pts = scorePick(p.picks?.[m.id], r);
+        total += pts; if (pts === 3) exact++; if (pts > 0) hits++;
+      }
+      return { id: p.user_id, name: prettyName(p.name), total, exact, hits };
+    });
+    rows.sort((a, b) => b.total - a.total || b.exact - a.exact || a.name.localeCompare(b.name));
+    setBoard(rows);
+  }, []);
+
+  useEffect(() => { if (!loading && tab === "tabla") loadBoard(); }, [tab, loading, loadBoard]);
+
+  if (loading) return <div className="g-root"><div className="g-center"><div className="g-spin" /></div></div>;
+
+  const myPts = MATCHES.reduce((s, m) => s + scorePick(picks[m.id], results[m.id]), 0);
+
+  return (
+    <div className="g-root"><div className="g-wrap">
+      <div className="g-hero" style={{ paddingBottom: 4 }}>
+        <div className="g-logo"><img src="/logo.jpg" alt="Galletas FC" /></div>
+        <div className="g-eyebrow">⚽ Polla Mundial · 2026</div>
+        <div className="g-rules">
+          <span className="g-rule">Exacto <b>= 3</b></span>
+          <span className="g-rule f">Diferencia <b>= 2</b></span>
+          <span className="g-rule o">Signo <b>= 1</b></span>
+        </div>
+      </div>
+
+      <div className="g-me">
+        {editingName ? (
+          <div className="g-nedit">
+            <input
+              className="g-ninput" type="text" maxLength={40} autoFocus value={nameDraft}
+              placeholder="Tu nombre"
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
+            />
+            <button className="g-save" onClick={saveName}>Guardar</button>
+            <button className="g-cancel" onClick={() => setEditingName(false)}>Cancelar</button>
+          </div>
+        ) : (
+          <span>
+            👤 {displayName} · <b>{myPts}</b> pts
+            <button className="g-edit" onClick={() => { setNameDraft(displayName); setEditingName(true); }}>Editar</button>
+          </span>
+        )}
+        <button className="g-logout" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
+      </div>
+
+      <div className="g-tabs">
+        <button className={"g-tab" + (tab === "pred" ? " on" : "")} onClick={() => setTab("pred")}>Pronósticos</button>
+        <button className={"g-tab" + (tab === "tabla" ? " on" : "")} onClick={() => setTab("tabla")}>Tabla</button>
+        <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
+      </div>
+
+      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} />}
+      {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} />}
+      {tab === "res" && (
+        <ResultsView results={results} isAdmin={isAdmin} adminMode={adminMode}
+          setAdminMode={setAdminMode} setResult={setResult} />
+      )}
+
+      <Footer />
+      {toast && <div className="g-toast">{toast}</div>}
+    </div></div>
+  );
+}
+
+/* ============================ HELPERS SUPABASE ============================ */
+async function loadResults() {
+  const { data } = await supabase.from("results").select("match_id,home,away");
+  const map = {};
+  (data || []).forEach((r) => { map[r.match_id] = [r.home, r.away]; });
+  return map;
+}
+async function checkAdmin(email) {
+  if (!email) return false;
+  const { data } = await supabase.from("admins").select("email").eq("email", email).maybeSingle();
+  return !!data;
+}
+
+// Devuelve un nombre legible. Si recibe un correo, lo convierte (ej: "ana.soto@gmail.com" → "Ana Soto").
+function prettyName(raw) {
+  const s = (raw ?? "").toString().trim();
+  if (!s) return "Jugador";
+  if (!s.includes("@")) return s;
+  const local = s.split("@")[0];
+  const name = local
+    .split(/[._+\-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+  return name || "Jugador";
+}
+
+/* ============================ VISTAS ============================ */
+function Footer() {
+  return <div className="g-foot"><b>GALLETAS FC</b><br />Santiago Centro · Maipú · Lo Prado · La Cisterna</div>;
+}
+
+function PredView({ picks, results, setPick, savePicks }) {
+  const now = Date.now();
+  const locked = now >= DEADLINE;
+  const days = Math.max(0, Math.ceil((DEADLINE - now) / 86400000));
+  return (
+    <>
+      <div className="g-card">
+        {locked ? (
+          <p className="g-help"><b className="o">🔒 Pronósticos cerrados.</b> El Mundial ya arrancó, así que los
+            marcadores quedaron congelados. Abajo ves tus puntos a medida que se cargan los resultados.</p>
+        ) : (
+          <p className="g-help">
+            Anota el marcador de <b>todos</b> los partidos y toca <b className="c">Guardar</b>. Puedes editar cuantas
+            veces quieras hasta que arranque el Mundial: <b className="c">cierra el 11 de junio</b> (faltan {days} día{days === 1 ? "" : "s"}).
+            Después no se podrá cambiar nada.<br />
+            Puntos por partido: marcador <b className="c">exacto = 3</b>, acertar ganador y <b className="f">diferencia de goles = 2</b>,
+            acertar solo el <b className="o">signo (quién gana o empate) = 1</b>.
+          </p>
+        )}
+      </div>
+      {GROUPS.map((g) => (
+        <div className="g-card" key={g}>
+          <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>
+          {MATCHES.filter((m) => m.group === g).map((m) => {
+            const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
+            return (
+              <div key={m.id}>
+                <div className="g-match">
+                  <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
+                  <div className="g-sb">
+                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[0]} onChange={(e) => setPick(m.id, 0, e.target.value)} />
+                    <span className="g-colon">:</span>
+                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[1]} onChange={(e) => setPick(m.id, 1, e.target.value)} />
+                  </div>
+                  <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
+                  <div className={"g-pts " + (pts === 3 ? "c" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
+                </div>
+                {r && <div className="g-note fin">Final {r[0]}–{r[1]} · J{m.jornada} · {m.day} jun</div>}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {!locked && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
+    </>
+  );
+}
+
+function BoardView({ board, myId, reload }) {
+  return (
+    <>
+      <div className="g-card g-lhead">
+        <div className="g-lt">🏆 Tabla</div>
+        <button className="g-btn ghost" style={{ width: "auto", padding: "11px 16px" }} onClick={reload}>↻ Refrescar</button>
+      </div>
+      {board.length === 0 ? (
+        <div className="g-card"><div className="g-empty">Todavía nadie cargó pronósticos.<br />Comparte el link con las Galletas para que entren.</div></div>
+      ) : (
+        <div className="g-card">
+          {board.map((row, i) => (
+            <div className={"g-row" + (i === 0 ? " p1" : "") + (row.id === myId ? " me" : "")} key={row.id}>
+              <div className={"g-rk" + (i === 0 ? " t1" : i === 1 ? " t2" : i === 2 ? " t3" : "")}>{i + 1}</div>
+              <div className="g-rn"><b>{row.name}{row.id === myId ? " (tú)" : ""}</b><small>{row.exact} exactos · {row.hits} aciertos</small></div>
+              <div className="g-rt">{row.total}<small>pts</small></div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult }) {
+  const count = Object.keys(results).length;
+  return (
+    <>
+      <div className="g-card">
+        {isAdmin ? (
+          <>
+            <label className="g-toggle" onClick={() => setAdminMode(!adminMode)}>
+              <div className={"g-sw" + (adminMode ? " on" : "")}><b /></div>Modo organizador (editar resultados)
+            </label>
+            <p className="g-help" style={{ marginTop: 12 }}>
+              {count > 0 ? <><span className="g-badge">{count}</span> partidos con resultado. </> : "Aún no hay resultados cargados. "}
+              Cuando cargues un marcador, el puntaje de todos se recalcula y se guarda solo en la base de datos.
+            </p>
+          </>
+        ) : (
+          <p className="g-help">
+            {count > 0 ? <><span className="g-badge">{count}</span> partidos con resultado. </> : "Aún no hay resultados cargados. "}
+            Solo el organizador puede cargar los marcadores. El puntaje de todos se calcula solo a partir de ellos.
+          </p>
+        )}
+      </div>
+      {GROUPS.map((g) => (
+        <div className="g-card" key={g}>
+          <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>
+          {MATCHES.filter((m) => m.group === g).map((m) => {
+            const r = results[m.id] || ["", ""];
+            const has = !!results[m.id];
+            const editable = isAdmin && adminMode;
+            return (
+              <div className="g-match" key={m.id}>
+                <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
+                <div className="g-sb">
+                  {editable ? (
+                    <>
+                      <input className="g-sc res" type="number" inputMode="numeric" value={r[0]} onChange={(e) => setResult(m.id, 0, e.target.value)} />
+                      <span className="g-colon">:</span>
+                      <input className="g-sc res" type="number" inputMode="numeric" value={r[1]} onChange={(e) => setResult(m.id, 1, e.target.value)} />
+                    </>
+                  ) : (
+                    <span className={"g-rscore" + (has ? "" : " none")}>{has ? `${r[0]} : ${r[1]}` : "—"}</span>
+                  )}
+                </div>
+                <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
