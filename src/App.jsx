@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
 import {
-  MATCHES, GROUPS, flag, scorePick, DEADLINE,
+  MATCHES, GROUPS, flag, scorePick, DEADLINE, INSCRIPCION,
 } from "./data";
 
 /* ============================ AUTH WRAPPER ============================ */
@@ -77,6 +77,8 @@ function Polla({ session }) {
   const [board, setBoard] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
+  const [paidSet, setPaidSet] = useState(() => new Set());
+  const [players, setPlayers] = useState([]);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
   const show = (m) => { setToast(m); setTimeout(() => setToast(""), 1900); };
@@ -84,16 +86,18 @@ function Polla({ session }) {
   // Carga inicial: mis pronósticos, resultados, y si soy admin.
   useEffect(() => {
     (async () => {
-      const [{ data: mine }, resMap, admin] = await Promise.all([
+      const [{ data: mine }, resMap, admin, paid] = await Promise.all([
         supabase.from("predictions").select("picks,name").eq("user_id", user.id).maybeSingle(),
         loadResults(),
         checkAdmin(myEmail),
+        loadPayments(),
       ]);
       if (mine?.picks) setPicks(mine.picks);
       // Respeta el nombre guardado solo si es un nombre de verdad (no un correo); así no pisa lo que cada uno editó.
       if (mine?.name && !mine.name.includes("@")) setDisplayName(mine.name);
       setResults(resMap);
       setIsAdmin(admin);
+      setPaidSet(paid);
       setLoading(false);
     })();
   }, [user.id, myEmail]);
@@ -156,9 +160,32 @@ function Polla({ session }) {
 
   useEffect(() => { if (!loading && tab === "tabla") loadBoard(); }, [tab, loading, loadBoard]);
 
+  // Lista de jugadores para que el organizador marque quién pagó la cuota.
+  const loadPlayersList = useCallback(async () => {
+    const { data } = await supabase.from("predictions").select("user_id,name");
+    const list = (data || [])
+      .map((p) => ({ id: p.user_id, name: prettyName(p.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    setPlayers(list);
+  }, []);
+
+  useEffect(() => {
+    if (!loading && isAdmin && tab === "res") loadPlayersList();
+  }, [isAdmin, tab, loading, loadPlayersList]);
+
+  // El organizador marca/desmarca el pago de la cuota de un jugador.
+  const togglePaid = async (userId, next) => {
+    setPaidSet((prev) => { const c = new Set(prev); if (next) c.add(userId); else c.delete(userId); return c; });
+    const { error } = await supabase.from("payments")
+      .upsert({ user_id: userId, paid: next, updated_at: new Date().toISOString() });
+    if (error) { show("Error al actualizar el pago"); setPaidSet(await loadPayments()); }
+    else show(next ? "✓ Inscripción activada" : "Inscripción quitada");
+  };
+
   if (loading) return <div className="g-root"><div className="g-center"><div className="g-spin" /></div></div>;
 
   const myPts = MATCHES.reduce((s, m) => s + scorePick(picks[m.id], results[m.id]), 0);
+  const amPaid = paidSet.has(user.id);
 
   return (
     <div className="g-root"><div className="g-wrap">
@@ -185,10 +212,13 @@ function Polla({ session }) {
             <button className="g-cancel" onClick={() => setEditingName(false)}>Cancelar</button>
           </div>
         ) : (
-          <span>
-            👤 {displayName} · <b>{myPts}</b> pts
-            <button className="g-edit" onClick={() => { setNameDraft(displayName); setEditingName(true); }}>Editar</button>
-          </span>
+          <>
+            <span>
+              👤 {displayName} · <b>{myPts}</b> pts
+              <button className="g-edit" onClick={() => { setNameDraft(displayName); setEditingName(true); }}>Editar</button>
+            </span>
+            {amPaid && <span className="g-prem">★ Premium</span>}
+          </>
         )}
         <button className="g-logout" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
       </div>
@@ -199,11 +229,12 @@ function Polla({ session }) {
         <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
       </div>
 
-      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} />}
-      {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} />}
+      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} amPaid={amPaid} />}
+      {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} paidSet={paidSet} />}
       {tab === "res" && (
         <ResultsView results={results} isAdmin={isAdmin} adminMode={adminMode}
-          setAdminMode={setAdminMode} setResult={setResult} />
+          setAdminMode={setAdminMode} setResult={setResult}
+          players={players} paidSet={paidSet} togglePaid={togglePaid} />
       )}
 
       <Footer />
@@ -223,6 +254,14 @@ async function checkAdmin(email) {
   if (!email) return false;
   const { data } = await supabase.from("admins").select("email").eq("email", email).maybeSingle();
   return !!data;
+}
+// Conjunto de user_id que ya pagaron la cuota (para mostrar el distintivo Premium).
+// Si la tabla aún no existe en Supabase, devuelve un set vacío sin romper la app.
+async function loadPayments() {
+  const { data } = await supabase.from("payments").select("user_id,paid");
+  const set = new Set();
+  (data || []).forEach((r) => { if (r.paid) set.add(r.user_id); });
+  return set;
 }
 
 // Devuelve un nombre legible. Si recibe un correo, lo convierte (ej: "ana.soto@gmail.com" → "Ana Soto").
@@ -244,12 +283,32 @@ function Footer() {
   return <div className="g-foot"><b>GALLETAS FC</b><br />Santiago Centro · Maipú · Lo Prado · La Cisterna</div>;
 }
 
-function PredView({ picks, results, setPick, savePicks }) {
+function PredView({ picks, results, setPick, savePicks, amPaid }) {
   const now = Date.now();
   const locked = now >= DEADLINE;
   const days = Math.max(0, Math.ceil((DEADLINE - now) / 86400000));
   return (
     <>
+      <div className="g-card">
+        {amPaid ? (
+          <div className="g-insc-ok">
+            <span className="g-prem">★ Premium</span>
+            <span className="g-help"><b>Inscripción al día.</b> Ya estás dentro de la polla oficial. ¡Suerte!</span>
+          </div>
+        ) : (
+          <>
+            <div className="g-disp" style={{ fontSize: 17, marginBottom: 6 }}>Inscripción a la polla</div>
+            <p className="g-help" style={{ marginBottom: 12 }}>
+              Paga la cuota {INSCRIPCION.monto ? <b className="c">{INSCRIPCION.monto} </b> : null}para participar
+              oficialmente. Cuando el organizador confirme tu pago, te aparece el distintivo{" "}
+              <span className="g-prem mini">★</span> <b>Premium</b>.
+            </p>
+            <a className="g-btn fire" href={INSCRIPCION.mpLink} target="_blank" rel="noopener noreferrer">
+              Pagar con Mercado Pago
+            </a>
+          </>
+        )}
+      </div>
       <div className="g-card">
         {locked ? (
           <p className="g-help"><b className="o">🔒 Pronósticos cerrados.</b> El Mundial ya arrancó, así que los
@@ -292,7 +351,7 @@ function PredView({ picks, results, setPick, savePicks }) {
   );
 }
 
-function BoardView({ board, myId, reload }) {
+function BoardView({ board, myId, reload, paidSet }) {
   return (
     <>
       <div className="g-card g-lhead">
@@ -306,7 +365,7 @@ function BoardView({ board, myId, reload }) {
           {board.map((row, i) => (
             <div className={"g-row" + (i === 0 ? " p1" : "") + (row.id === myId ? " me" : "")} key={row.id}>
               <div className={"g-rk" + (i === 0 ? " t1" : i === 1 ? " t2" : i === 2 ? " t3" : "")}>{i + 1}</div>
-              <div className="g-rn"><b>{row.name}{row.id === myId ? " (tú)" : ""}</b><small>{row.exact} exactos · {row.hits} aciertos</small></div>
+              <div className="g-rn"><b>{row.name}{row.id === myId ? " (tú)" : ""}{paidSet?.has(row.id) && <span className="g-prem mini" title="Inscripción pagada">★</span>}</b><small>{row.exact} exactos · {row.hits} aciertos</small></div>
               <div className="g-rt">{row.total}<small>pts</small></div>
             </div>
           ))}
@@ -316,7 +375,7 @@ function BoardView({ board, myId, reload }) {
   );
 }
 
-function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult }) {
+function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, players, paidSet, togglePaid }) {
   const count = Object.keys(results).length;
   return (
     <>
@@ -338,6 +397,32 @@ function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult }) {
           </p>
         )}
       </div>
+
+      {isAdmin && adminMode && (
+        <div className="g-card">
+          <div className="g-lt" style={{ fontSize: 18, marginBottom: 6 }}>Inscripciones</div>
+          <p className="g-help" style={{ marginBottom: 12 }}>
+            Marca a quién ya le llegó el pago de la cuota a tu cuenta de Mercado Pago. Al activarlo, esa persona
+            obtiene el distintivo <span className="g-prem mini">★</span> <b>Premium</b> en su perfil y en la tabla.
+          </p>
+          {players.length === 0 ? (
+            <div className="g-empty">Aún no hay jugadores para mostrar.<br />Aparecen aquí cuando entran y guardan sus pronósticos.</div>
+          ) : (
+            players.map((pl) => {
+              const paid = paidSet.has(pl.id);
+              return (
+                <div className="g-prow" key={pl.id}>
+                  <span className="g-pname">{pl.name}{paid && <span className="g-prem mini">★</span>}</span>
+                  <button className={"g-paybtn" + (paid ? " on" : "")} onClick={() => togglePaid(pl.id, !paid)}>
+                    {paid ? "Pagado" : "Marcar pagado"}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
       {GROUPS.map((g) => (
         <div className="g-card" key={g}>
           <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>

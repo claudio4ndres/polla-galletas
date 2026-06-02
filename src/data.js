@@ -64,6 +64,15 @@ export const MATCHES = RAW.map((m, i) => ({
 export const GROUPS = [..."ABCDEFGHIJKL"];
 export const PTS_EXACT = 3, PTS_DIFF = 2, PTS_SIGN = 1;
 
+// ===================== INSCRIPCIÓN / CUOTA DE PARTICIPACIÓN =====================
+// Link de pago de Mercado Pago (fijo, igual para todos). El jugador paga ahí y luego
+// el organizador confirma manualmente quién pagó desde la pestaña Resultados → modo organizador.
+// Cuando lo confirma, esa persona obtiene el distintivo "Premium".
+export const INSCRIPCION = {
+  mpLink: "https://mpago.la/1NeEpDV",
+  monto: "", // Opcional. Ej: "$5.000". Déjalo en "" si aún no defines el monto.
+};
+
 // El Mundial arranca el 11-jun-2026. Se puede editar hasta ese momento; luego TODO queda cerrado.
 export const DEADLINE = new Date(2026, 5, 11, 0, 0, 0).getTime();
 

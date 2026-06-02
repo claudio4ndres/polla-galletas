@@ -26,10 +26,20 @@ create table if not exists public.admins (
   email text primary key
 );
 
+-- Inscripciones: marca quién pagó la cuota de participación.
+-- Una fila por jugador. Solo el organizador la escribe (igual que los resultados),
+-- así nadie puede auto-activarse el "Premium".
+create table if not exists public.payments (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  paid       boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
 -- 2) SEGURIDAD (Row Level Security) --------------------------
 alter table public.predictions enable row level security;
 alter table public.results     enable row level security;
 alter table public.admins      enable row level security;
+alter table public.payments    enable row level security;
 
 -- Pronósticos: cualquier usuario logueado puede LEER todos (para armar la tabla),
 -- pero cada uno solo puede CREAR/EDITAR el suyo.
@@ -60,6 +70,18 @@ create policy results_write_admin on public.results
 drop policy if exists admins_select on public.admins;
 create policy admins_select on public.admins
   for select to authenticated using (true);
+
+-- Inscripciones: todos los logueados LEEN (para mostrar el distintivo Premium en la tabla);
+-- solo los organizadores ESCRIBEN (marcan quién pagó la cuota).
+drop policy if exists payments_select on public.payments;
+create policy payments_select on public.payments
+  for select to authenticated using (true);
+
+drop policy if exists payments_write_admin on public.payments;
+create policy payments_write_admin on public.payments
+  for all to authenticated
+  using (auth.email() in (select email from public.admins))
+  with check (auth.email() in (select email from public.admins));
 
 -- 3) DEFINE AL ORGANIZADOR -----------------------------------
 -- Reemplaza el correo por el de TU cuenta de Google (la que usarás para entrar).
