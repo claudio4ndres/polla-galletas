@@ -118,3 +118,19 @@ body { background: #070e18; }
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes pulse{0%,100%{box-shadow:0 0 30px rgba(46,201,240,.3)}50%{box-shadow:0 0 44px rgba(255,125,31,.34)}}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== Responsive para teléfonos: que los nombres largos de países no se corten ===== */
+@media (max-width:560px){
+  .g-wrap{padding:0 10px 64px;}
+  .g-card{padding:14px;}
+  /* El nombre puede usar dos líneas (Costa de Marfil, Estados Unidos...) en vez de cortarse con "…" */
+  .g-team{gap:6px;font-size:13px;}
+  .g-tn{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;}
+  .g-match{gap:6px;}
+  .g-fl{font-size:18px;}
+  /* Controles más compactos para dejarle ancho al nombre */
+  .g-sb{gap:5px;}
+  .g-sc{width:38px;height:42px;font-size:18px;border-radius:9px;}
+  .g-pts{width:22px;font-size:13px;}
+  .g-rscore{min-width:60px;font-size:18px;}
+}
