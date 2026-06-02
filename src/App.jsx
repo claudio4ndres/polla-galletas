@@ -114,6 +114,26 @@ function Polla({ session }) {
     show(error ? "Error al guardar" : "✓ Pronósticos guardados");
   };
 
+  // "Prueba tu suerte": rellena los 72 marcadores al azar (sin guardar todavía).
+  // Goles ponderados hacia números bajos para que parezcan resultados reales.
+  const fillRandom = () => {
+    const hasAny = Object.values(picks).some((v) => v && (v[0] !== "" || v[1] !== ""));
+    if (hasAny && !window.confirm("Esto reemplaza todos tus marcadores por unos al azar. ¿Seguir?")) return;
+    const goal = () => {
+      const r = Math.random();
+      if (r < 0.28) return 0;
+      if (r < 0.60) return 1;
+      if (r < 0.82) return 2;
+      if (r < 0.93) return 3;
+      if (r < 0.98) return 4;
+      return 5;
+    };
+    const next = {};
+    MATCHES.forEach((m) => { next[m.id] = [goal(), goal()]; });
+    setPicks(next);
+    show("✓ Marcadores al azar listos · revisa y guarda");
+  };
+
   const saveName = async () => {
     const clean = nameDraft.trim().replace(/\s+/g, " ").slice(0, 40);
     if (!clean) { show("Escribe un nombre"); return; }
@@ -229,7 +249,7 @@ function Polla({ session }) {
         <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
       </div>
 
-      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} amPaid={amPaid} />}
+      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} />}
       {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} paidSet={paidSet} />}
       {tab === "res" && (
         <ResultsView results={results} isAdmin={isAdmin} adminMode={adminMode}
@@ -283,7 +303,7 @@ function Footer() {
   return <div className="g-foot"><b>GALLETAS FC</b><br />Santiago Centro · Maipú · Lo Prado · La Cisterna</div>;
 }
 
-function PredView({ picks, results, setPick, savePicks, amPaid }) {
+function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
   const now = Date.now();
   const locked = now >= DEADLINE;
   const days = Math.max(0, Math.ceil((DEADLINE - now) / 86400000));
@@ -349,6 +369,15 @@ function PredView({ picks, results, setPick, savePicks, amPaid }) {
           </>
         )}
       </div>
+      {!locked && (
+        <div className="g-card">
+          <p className="g-help" style={{ marginBottom: 12 }}>
+            ¿Sin tiempo para pensar los 72 partidos? Deja que la suerte decida: llenamos
+            todos los marcadores al azar y después los ajustas y tocas <b className="c">Guardar</b>.
+          </p>
+          <button className="g-btn ghost" onClick={fillRandom}>Prueba tu suerte</button>
+        </div>
+      )}
       {GROUPS.map((g) => (
         <div className="g-card" key={g}>
           <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>
