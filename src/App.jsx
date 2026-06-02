@@ -314,13 +314,39 @@ function PredView({ picks, results, setPick, savePicks, amPaid }) {
           <p className="g-help"><b className="o">🔒 Pronósticos cerrados.</b> El Mundial ya arrancó, así que los
             marcadores quedaron congelados. Abajo ves tus puntos a medida que se cargan los resultados.</p>
         ) : (
-          <p className="g-help">
-            Anota el marcador de <b>todos</b> los partidos y toca <b className="c">Guardar</b>. Puedes editar cuantas
-            veces quieras hasta que arranque el Mundial: <b className="c">cierra el 11 de junio</b> (faltan {days} día{days === 1 ? "" : "s"}).
-            Después no se podrá cambiar nada.<br />
-            Puntos por partido: marcador <b className="c">exacto = 3</b>, acertar ganador y <b className="f">diferencia de goles = 2</b>,
-            acertar solo el <b className="o">signo (quién gana o empate) = 1</b>.
-          </p>
+          <>
+            <p className="g-help">
+              Anota el marcador de <b>todos</b> los partidos y toca <b className="c">Guardar</b>. Puedes editar cuantas
+              veces quieras hasta que arranque el Mundial: <b className="c">cierra el 11 de junio</b> (faltan {days} día{days === 1 ? "" : "s"}).
+              Después no se podrá cambiar nada.
+            </p>
+            <div className="g-rules-t">Cómo se ganan los puntos en cada partido</div>
+            <p className="g-help" style={{ marginBottom: 13 }}>
+              Antes que nada, dos palabras: el <b className="o">signo</b> es <b>quién gana o si terminó empate</b> (lo que se conoce
+              como 1‑X‑2), y la <b className="f">diferencia</b> es <b>por cuántos goles gana</b> el equipo (por 1, por 2, etc.).
+            </p>
+            <ul className="g-rules">
+              <li className="g-rule">
+                <span className="g-rp c">3</span>
+                <span className="g-rtx"><b>Marcador exacto.</b> Acertaste los goles tal cual, los de cada equipo.
+                  <span className="g-rex"> Ej.: pones 2-1 y queda 2-1.</span></span>
+              </li>
+              <li className="g-rule">
+                <span className="g-rp f">2</span>
+                <span className="g-rtx"><b>Acertaste el ganador y la diferencia de goles</b>, pero no el marcador exacto.
+                  <span className="g-rex"> Ej.: pones 2-1 y queda 3-2; en los dos gana el local por 1 gol.</span></span>
+              </li>
+              <li className="g-rule">
+                <span className="g-rp o">1</span>
+                <span className="g-rtx"><b>Acertaste solo el signo</b> (quién gana, o que fue empate), pero no la diferencia.
+                  <span className="g-rex"> Ej.: pones 2-1 y queda 3-0, igual gana el local; o pones 1-1 y queda 0-0, igual es empate.</span></span>
+              </li>
+              <li className="g-rule">
+                <span className="g-rp z">0</span>
+                <span className="g-rtx"><b>Erraste el signo.</b> El partido se fue para el otro lado: ganó el rival, o hubo empate cuando esperabas ganador (o al revés).</span>
+              </li>
+            </ul>
+          </>
         )}
       </div>
       {GROUPS.map((g) => (
