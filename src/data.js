@@ -65,13 +65,33 @@ export const GROUPS = [..."ABCDEFGHIJKL"];
 export const PTS_EXACT = 3, PTS_DIFF = 2, PTS_SIGN = 1;
 
 // ===================== INSCRIPCIÓN / CUOTA DE PARTICIPACIÓN =====================
-// Link de pago de Mercado Pago (fijo, igual para todos). El jugador paga ahí y luego
+// Datos de transferencia (fijos, iguales para todos). El jugador transfiere y luego
 // el organizador confirma manualmente quién pagó desde la pestaña Resultados → modo organizador.
 // Cuando lo confirma, esa persona obtiene el distintivo "Premium".
 export const INSCRIPCION = {
-  mpLink: "https://mpago.la/1NeEpDV",
-  monto: "", // Opcional. Ej: "$5.000". Déjalo en "" si aún no defines el monto.
+  monto: "$10.000", // Cuota de inscripción (CLP). El pozo se reparte entre los primeros (ver PREMIOS).
+  transferencia: {
+    titular: "Claudio Figueroa",
+    rut: "17.675.629-2",
+    banco: "Banco de Chile",
+    tipo: "Cuenta Corriente",
+    cuenta: "00-800-49317-06",
+    email: "claudio.figueroa.arias@gmail.com",
+  },
 };
+
+// Cuota como número en CLP, derivada de INSCRIPCION.monto ("$10.000" → 10000).
+export const montoNumber = parseInt(String(INSCRIPCION.monto).replace(/[^\d]/g, ""), 10) || 0;
+
+// ===================== PREMIOS (reparto del pozo) =====================
+// El pozo = cuota (montoNumber) × inscritos pagados. Se reparte entre los primeros de la tabla.
+// Para cambiar el reparto, edita estos porcentajes (deben sumar 100). Agrega/quita filas para
+// más o menos premiados; la pantalla "Premios" se adapta sola.
+export const PREMIOS = [
+  { pos: 1, label: "Primer lugar", pct: 60 },
+  { pos: 2, label: "Segundo lugar", pct: 30 },
+  { pos: 3, label: "Tercer lugar", pct: 10 },
+];
 
 // El Mundial arranca el 11-jun-2026. Se puede editar hasta ese momento; luego TODO queda cerrado.
 export const DEADLINE = new Date(2026, 5, 11, 0, 0, 0).getTime();

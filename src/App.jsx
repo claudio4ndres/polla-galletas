@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
 import {
-  MATCHES, GROUPS, flag, scorePick, DEADLINE, INSCRIPCION,
+  MATCHES, GROUPS, flag, scorePick, DEADLINE, INSCRIPCION, PREMIOS, montoNumber,
 } from "./data";
 
 /* ============================ AUTH WRAPPER ============================ */
@@ -212,10 +212,10 @@ function Polla({ session }) {
       <div className="g-hero" style={{ paddingBottom: 4 }}>
         <div className="g-logo"><img src="/logo.jpg" alt="Galletas FC" /></div>
         <div className="g-eyebrow">⚽ Polla Mundial · 2026</div>
-        <div className="g-rules">
-          <span className="g-rule">Exacto <b>= 3</b></span>
-          <span className="g-rule f">Diferencia <b>= 2</b></span>
-          <span className="g-rule o">Signo <b>= 1</b></span>
+        <div className="g-legend">
+          <span className="g-key">Exacto <b>= 3</b></span>
+          <span className="g-key f">Diferencia <b>= 2</b></span>
+          <span className="g-key o">Signo <b>= 1</b></span>
         </div>
       </div>
 
@@ -246,11 +246,13 @@ function Polla({ session }) {
       <div className="g-tabs">
         <button className={"g-tab" + (tab === "pred" ? " on" : "")} onClick={() => setTab("pred")}>Pronósticos</button>
         <button className={"g-tab" + (tab === "tabla" ? " on" : "")} onClick={() => setTab("tabla")}>Tabla</button>
+        <button className={"g-tab" + (tab === "premios" ? " on" : "")} onClick={() => setTab("premios")}>Premios</button>
         <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
       </div>
 
       {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} />}
       {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} paidSet={paidSet} />}
+      {tab === "premios" && <PremiosView paidCount={paidSet.size} />}
       {tab === "res" && (
         <ResultsView results={results} isAdmin={isAdmin} adminMode={adminMode}
           setAdminMode={setAdminMode} setResult={setResult}
@@ -307,6 +309,16 @@ function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
   const now = Date.now();
   const locked = now >= DEADLINE;
   const days = Math.max(0, Math.ceil((DEADLINE - now) / 86400000));
+  const [copied, setCopied] = useState(false);
+  const T = INSCRIPCION.transferencia;
+  const copiarDatos = async () => {
+    const txt = `Titular: ${T.titular}\nRUT: ${T.rut}\n${T.banco} · ${T.tipo}\nCuenta: ${T.cuenta}\nCorreo: ${T.email}`;
+    try {
+      await navigator.clipboard.writeText(txt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) { /* algunos navegadores bloquean el portapapeles; el jugador puede copiar a mano */ }
+  };
   return (
     <>
       <div className="g-card">
@@ -319,13 +331,20 @@ function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
           <>
             <div className="g-disp" style={{ fontSize: 17, marginBottom: 6 }}>Inscripción a la polla</div>
             <p className="g-help" style={{ marginBottom: 12 }}>
-              Paga la cuota {INSCRIPCION.monto ? <b className="c">{INSCRIPCION.monto} </b> : null}para participar
-              oficialmente. Cuando el organizador confirme tu pago, te aparece el distintivo{" "}
+              Transfiere la cuota {INSCRIPCION.monto ? <b className="c">{INSCRIPCION.monto} </b> : null}a esta cuenta y
+              avísale al organizador. Cuando confirme tu pago, te aparece el distintivo{" "}
               <span className="g-prem mini">★</span> <b>Premium</b>.
             </p>
-            <a className="g-btn fire" href={INSCRIPCION.mpLink} target="_blank" rel="noopener noreferrer">
-              Pagar con Mercado Pago
-            </a>
+            <div className="g-bank">
+              <div className="g-bk-row"><span className="g-bk-k">Titular</span><span className="g-bk-v">{T.titular}</span></div>
+              <div className="g-bk-row"><span className="g-bk-k">RUT</span><span className="g-bk-v">{T.rut}</span></div>
+              <div className="g-bk-row"><span className="g-bk-k">Banco</span><span className="g-bk-v">{T.banco}</span></div>
+              <div className="g-bk-row"><span className="g-bk-k">Cuenta</span><span className="g-bk-v">{T.tipo} · {T.cuenta}</span></div>
+              <div className="g-bk-row"><span className="g-bk-k">Correo</span><span className="g-bk-v">{T.email}</span></div>
+            </div>
+            <button className="g-btn fire" onClick={copiarDatos}>
+              {copied ? "Datos copiados" : "Copiar datos de transferencia"}
+            </button>
           </>
         )}
       </div>
@@ -431,6 +450,48 @@ function BoardView({ board, myId, reload, paidSet }) {
   );
 }
 
+function PremiosView({ paidCount }) {
+  const fmt = (n) => "$" + n.toLocaleString("es-CL");
+  const pozo = montoNumber * paidCount;
+  return (
+    <>
+      <div className="g-card">
+        <div className="g-disp" style={{ fontSize: 20, marginBottom: 6 }}>Premios de la polla</div>
+        <p className="g-help" style={{ marginBottom: 14 }}>
+          El pozo se arma con las cuotas de inscripción{INSCRIPCION.monto ? <> de <b className="c">{INSCRIPCION.monto}</b> por persona</> : null} y
+          se reparte entre los <b>tres primeros</b> de la Tabla cuando termine la fase de grupos.
+        </p>
+        <div className="g-pozo">
+          <span className="g-pozo-k">Pozo actual</span>
+          <span className="g-pozo-v">{fmt(pozo)}</span>
+          <span className="g-pozo-s">
+            {paidCount > 0
+              ? `${paidCount} inscrito${paidCount === 1 ? "" : "s"} al día · crece con cada pago`
+              : "Crece con cada inscripción que el organizador confirma"}
+          </span>
+        </div>
+      </div>
+
+      <div className="g-card">
+        <div className="g-rules-t">Cómo se reparte el pozo</div>
+        <div className="g-prizes">
+          {PREMIOS.map((p) => (
+            <div className={"g-prize t" + p.pos} key={p.pos}>
+              <div className="g-pz-pos">{p.pos}º</div>
+              <div className="g-pz-mid"><b>{p.label}</b><small>{p.pct}% del pozo</small></div>
+              <div className="g-pz-amt">{pozo > 0 ? fmt(Math.round(pozo * p.pct / 100)) : p.pct + "%"}</div>
+            </div>
+          ))}
+        </div>
+        <p className="g-help" style={{ marginTop: 14 }}>
+          Los montos se actualizan a medida que se confirman los pagos. Si hay empate en puntos,
+          desempata quién tenga más <b className="c">marcadores exactos</b>.
+        </p>
+      </div>
+    </>
+  );
+}
+
 function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, players, paidSet, togglePaid }) {
   const count = Object.keys(results).length;
   return (
@@ -458,7 +519,7 @@ function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, pla
         <div className="g-card">
           <div className="g-lt" style={{ fontSize: 18, marginBottom: 6 }}>Inscripciones</div>
           <p className="g-help" style={{ marginBottom: 12 }}>
-            Marca a quién ya le llegó el pago de la cuota a tu cuenta de Mercado Pago. Al activarlo, esa persona
+            Marca a quién ya le llegó la transferencia de la cuota a tu cuenta bancaria. Al activarlo, esa persona
             obtiene el distintivo <span className="g-prem mini">★</span> <b>Premium</b> en su perfil y en la tabla.
           </p>
           {players.length === 0 ? (

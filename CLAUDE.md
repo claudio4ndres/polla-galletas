@@ -20,7 +20,7 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 
 ## Estructura
 - `src/App.jsx` — auth (Google), vistas Pronósticos / Tabla / Resultados, lógica de guardado.
-- `src/data.js` — `MATCHES` (72 partidos), `FLAGS`, `scorePick()`, `DEADLINE`, constantes de puntaje, `INSCRIPCION` (link de pago + monto).
+- `src/data.js` — `MATCHES` (72 partidos), `FLAGS`, `scorePick()`, `DEADLINE`, constantes de puntaje, `INSCRIPCION` (datos de transferencia bancaria + monto).
 - `src/styles.css` — tema oscuro "eléctrico" de Galletas FC.
 - `src/supabaseClient.js` — cliente Supabase (lee variables de entorno).
 - `supabase/schema.sql` — tablas `predictions`, `results`, `admins`, `payments` + reglas RLS. Correr en Supabase.
@@ -47,10 +47,12 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - **Identidad**: login con Google (Supabase Auth); el nombre sale del perfil de Google.
 
 ## Interfaz y features (decisiones tomadas)
-- **Inscripción / Premium**: en Pronósticos cada jugador ve "Pagar con Mercado Pago" (link fijo
-  `INSCRIPCION.mpLink`). El organizador, desde Resultados → modo organizador → panel Inscripciones,
-  marca manualmente quién pagó. Al confirmarse aparece el distintivo **★ Premium** en su tarjeta y
-  en la Tabla. Solo `admins` escriben `payments`, así nadie se auto-activa.
+- **Inscripción / Premium**: en Pronósticos cada jugador ve los datos de transferencia bancaria
+  (`INSCRIPCION.transferencia`: titular, RUT, banco, tipo de cuenta, número, correo) dentro de una
+  tarjeta `.g-bank`, con un botón "Copiar datos de transferencia" (al portapapeles). Transfiere y le
+  avisa al organizador, que desde Resultados → modo organizador → panel Inscripciones marca
+  manualmente quién pagó. Al confirmarse aparece el distintivo **★ Premium** en su tarjeta y en la
+  Tabla. Solo `admins` escriben `payments`, así nadie se auto-activa.
 - **Reglas explicadas en la app**: la vista Pronósticos muestra "Cómo se ganan los puntos en cada
   partido" con un glosario que define **signo** (quién gana o empate, 1-X-2) y **diferencia** (por
   cuántos goles gana), más la lista de los 4 niveles (3/2/1/0) con ejemplos.
@@ -91,7 +93,7 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 ## Ideas / TODO
 - [ ] Fase de eliminación (round of 32 → final) cuando se definan los cruces.
 - [ ] Definir `INSCRIPCION.monto` en `data.js` cuando se fije el valor de la cuota (hoy va vacío).
-- [ ] Opcional: detección automática del pago de Mercado Pago (Checkout Pro + función serverless).
+- [ ] Opcional: confirmación automática de la transferencia (hoy el organizador marca a mano quién pagó).
 - [ ] Opcional: traer resultados automáticamente con una función serverless en Vercel
       (consultar un API de marcadores o la API de Anthropic con key del lado servidor).
 - [ ] Opcional: estadística de "mejor pronosticador por jornada".

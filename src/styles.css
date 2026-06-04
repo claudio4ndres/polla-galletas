@@ -25,9 +25,11 @@ body { background: #070e18; }
 .g-eyebrow{display:inline-flex;gap:8px;align-items:center;font-size:11px;letter-spacing:3px;text-transform:uppercase;
   color:var(--cyan);border:1px solid var(--line);border-radius:999px;padding:6px 15px;background:rgba(46,201,240,.06);}
 .g-tag{color:var(--mut);font-size:13px;margin-top:10px;letter-spacing:.3px;}
-.g-rules{display:inline-flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;}
-.g-rule{font-size:12px;color:var(--txt);background:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;}
-.g-rule b{color:var(--cyan);} .g-rule.o b{color:var(--gold);} .g-rule.f b{color:var(--orange);}
+/* Leyenda compacta del encabezado (3 píldoras). Ojo: usa .g-legend/.g-key para NO chocar
+   con .g-rules/.g-rule del glosario de Pronósticos, que son otra cosa. */
+.g-legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;}
+.g-key{font-size:12px;color:var(--txt);background:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;white-space:nowrap;}
+.g-key b{color:var(--cyan);} .g-key.o b{color:var(--gold);} .g-key.f b{color:var(--orange);}
 
 .g-me{display:flex;justify-content:center;align-items:center;gap:10px;margin:18px 0 6px;flex-wrap:wrap;}
 .g-me span{display:inline-flex;align-items:center;gap:9px;background:var(--ink2);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13px;color:var(--mut);}
@@ -136,6 +138,11 @@ body { background: #070e18; }
   box-shadow:0 0 16px rgba(227,169,72,.16);white-space:nowrap;}
 .g-prem.mini{padding:0;border:0;background:none;box-shadow:none;font-size:14px;margin-left:7px;}
 .g-insc-ok{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+/* Datos de transferencia para la cuota de inscripcion */
+.g-bank{display:flex;flex-direction:column;gap:1px;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:12px;background:var(--line);}
+.g-bk-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 13px;background:var(--ink2);}
+.g-bk-k{flex:0 0 auto;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);}
+.g-bk-v{font-size:14px;font-weight:700;color:var(--txt);text-align:right;word-break:break-word;}
 .g-prow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 2px;border-bottom:1px solid rgba(29,53,83,.5);}
 .g-prow:last-child{border-bottom:0;}
 .g-pname{display:inline-flex;align-items:center;font-size:14px;font-weight:600;min-width:0;}
@@ -143,6 +150,24 @@ body { background: #070e18; }
   font-size:12.5px;font-weight:700;font-family:'Archivo';cursor:pointer;white-space:nowrap;transition:.15s;}
 .g-paybtn:hover{border-color:var(--cyan);color:var(--cyan);}
 .g-paybtn.on{background:rgba(227,169,72,.15);border-color:rgba(227,169,72,.6);color:var(--gold);}
+
+/* ===== Premios: pozo y reparto entre los primeros ===== */
+.g-pozo{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;
+  background:linear-gradient(180deg,rgba(46,201,240,.10),rgba(12,23,38,.45));border:1px solid var(--line2);border-radius:14px;padding:15px;}
+.g-pozo-k{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--mut);font-weight:800;}
+.g-pozo-v{font-family:'Anton';font-size:34px;color:var(--cyan);letter-spacing:1px;line-height:1.05;}
+.g-pozo-s{font-size:11.5px;color:var(--mut);}
+.g-prizes{display:flex;flex-direction:column;gap:9px;}
+.g-prize{display:flex;align-items:center;gap:13px;padding:13px;border-radius:14px;background:var(--ink2);border:1px solid var(--line);}
+.g-prize.t1{background:linear-gradient(100deg,rgba(227,169,72,.16),var(--ink2));border-color:rgba(227,169,72,.5);}
+.g-prize.t2{background:linear-gradient(100deg,rgba(207,216,234,.10),var(--ink2));border-color:rgba(207,216,234,.32);}
+.g-prize.t3{background:linear-gradient(100deg,rgba(224,145,90,.12),var(--ink2));border-color:rgba(224,145,90,.42);}
+.g-pz-pos{font-family:'Anton';font-size:25px;width:40px;text-align:center;color:var(--mut);flex:none;}
+.g-prize.t1 .g-pz-pos{color:var(--gold);} .g-prize.t2 .g-pz-pos{color:#cfd8ea;} .g-prize.t3 .g-pz-pos{color:#e0915a;}
+.g-pz-mid{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;}
+.g-pz-mid b{font-size:15px;font-weight:700;color:var(--txt);}
+.g-pz-mid small{font-size:11.5px;color:var(--mut);}
+.g-pz-amt{font-family:'Anton';font-size:21px;color:var(--cyan);letter-spacing:.5px;white-space:nowrap;flex:none;}
 .g-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:linear-gradient(180deg,var(--cyan),#1da6cc);
   color:#03202b;font-weight:800;padding:13px 24px;border-radius:13px;font-size:14px;z-index:60;box-shadow:0 10px 34px rgba(0,0,0,.5);animation:rise .3s both;}
 .g-empty{text-align:center;color:var(--mut);padding:36px 12px;font-size:14px;line-height:1.7;}
@@ -160,6 +185,10 @@ body { background: #070e18; }
 @media (max-width:560px){
   .g-wrap{padding:0 10px 64px;}
   .g-card{padding:14px;}
+  /* Cuatro pestañas (Pronósticos / Tabla / Premios / Resultados): achicar tipografía y
+     espaciado para que las palabras largas entren sin cortarse en pantallas angostas. */
+  .g-tabs{gap:4px;padding:5px;}
+  .g-tab{font-size:10.5px;letter-spacing:.2px;padding:11px 2px;}
   /* El nombre puede usar dos líneas (Costa de Marfil, Estados Unidos...) en vez de cortarse con "…" */
   .g-team{gap:6px;font-size:13px;}
   .g-tn{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;}
@@ -170,4 +199,9 @@ body { background: #070e18; }
   .g-sc{width:38px;height:42px;font-size:18px;border-radius:9px;}
   .g-pts{width:22px;font-size:13px;}
   .g-rscore{min-width:60px;font-size:18px;}
+  /* Datos de transferencia: etiqueta arriba y valor abajo (más legible, sin apretar ni cortar feo) */
+  .g-bk-row{flex-direction:column;align-items:flex-start;gap:2px;}
+  .g-bk-v{text-align:left;font-size:15px;}
+  /* Botones de texto largo ("Copiar datos…", "Guardar…") sin que se desborden */
+  .g-btn{font-size:13.5px;padding:14px 12px;letter-spacing:.4px;}
 }
