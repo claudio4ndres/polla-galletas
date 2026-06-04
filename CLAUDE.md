@@ -19,8 +19,8 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - `npm run build` — build de producción (carpeta `dist/`)
 
 ## Estructura
-- `src/App.jsx` — auth (Google), vistas Pronósticos / Tabla / Resultados, lógica de guardado.
-- `src/data.js` — `MATCHES` (72 partidos), `FLAGS`, `scorePick()`, `DEADLINE`, constantes de puntaje, `INSCRIPCION` (datos de transferencia bancaria + monto).
+- `src/App.jsx` — auth (Google), vistas Pronósticos / Tabla / Premios / Resultados, lógica de guardado.
+- `src/data.js` — `MATCHES` (72 partidos), `FLAGS`, `scorePick()`, `DEADLINE`, constantes de puntaje, `INSCRIPCION` (datos de transferencia bancaria + monto), `montoNumber` y `PREMIOS` (reparto del pozo).
 - `src/styles.css` — tema oscuro "eléctrico" de Galletas FC.
 - `src/supabaseClient.js` — cliente Supabase (lee variables de entorno).
 - `supabase/schema.sql` — tablas `predictions`, `results`, `admins`, `payments` + reglas RLS. Correr en Supabase.
@@ -53,6 +53,12 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
   avisa al organizador, que desde Resultados → modo organizador → panel Inscripciones marca
   manualmente quién pagó. Al confirmarse aparece el distintivo **★ Premium** en su tarjeta y en la
   Tabla. Solo `admins` escriben `payments`, así nadie se auto-activa.
+- **Premios (reparto del pozo)**: pestaña *Premios* (`PremiosView` en `App.jsx`) que muestra el
+  **pozo** (`montoNumber` × inscritos confirmados) y cómo se reparte entre los primeros de la Tabla.
+  Hoy **60% / 30% / 10%** para 1º/2º/3º, definido en `PREMIOS` (`data.js`) — editable, y la pantalla
+  se adapta sola a la cantidad de premiados. Estilos `.g-pozo` y `.g-prize.t1/.t2/.t3` (oro/plata/
+  bronce). Desempate: a igual puntaje, más marcadores exactos. Si no hay pagos confirmados, el pozo
+  muestra $0 con el mensaje "crece con cada inscripción".
 - **Reglas explicadas en la app**: la vista Pronósticos muestra "Cómo se ganan los puntos en cada
   partido" con un glosario que define **signo** (quién gana o empate, 1-X-2) y **diferencia** (por
   cuántos goles gana), más la lista de los 4 niveles (3/2/1/0) con ejemplos.
@@ -92,7 +98,8 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 
 ## Ideas / TODO
 - [ ] Fase de eliminación (round of 32 → final) cuando se definan los cruces.
-- [ ] Definir `INSCRIPCION.monto` en `data.js` cuando se fije el valor de la cuota (hoy va vacío).
+- [x] Definir `INSCRIPCION.monto` (fijado en `$10.000` CLP; `montoNumber` lo deriva). Hecho.
+- [x] Pantalla Premios con reparto del pozo entre los primeros (60/30/10), editable en `PREMIOS`. Hecho.
 - [ ] Opcional: confirmación automática de la transferencia (hoy el organizador marca a mano quién pagó).
 - [ ] Opcional: traer resultados automáticamente con una función serverless en Vercel
       (consultar un API de marcadores o la API de Anthropic con key del lado servidor).
