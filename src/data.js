@@ -94,11 +94,17 @@ export const PREMIOS = [
 ];
 
 // El Mundial arranca el 11-jun-2026. Se puede editar hasta ese momento; luego TODO queda cerrado.
-export const DEADLINE = new Date(2026, 5, 11, 0, 0, 0).getTime();
+// DEADLINE en UTC: 11-jun-2026 04:00 UTC = 11-jun-2026 00:00 Chile (UTC-4) = 11-jun-2026 12:00 Seúl (UTC+8)
+export const DEADLINE = Date.UTC(2026, 5, 11, 4, 0, 0); // mes 5 = junio (0-indexed)
+
+// Devuelve true si now >= deadline (el momento exacto del deadline ya es bloqueado).
+export function isLocked(now = Date.now(), deadline = DEADLINE) {
+  return now >= deadline;
+}
 
 // Puntaje estándar de 3 niveles: exacto / diferencia de goles / signo (1-X-2).
 export function scorePick(pick, res) {
-  if (!pick || !res) return 0;
+  if (!pick || !res || !Array.isArray(pick) || !Array.isArray(res)) return 0;
   const [ph, pa] = pick, [rh, ra] = res;
   if ([ph, pa, rh, ra].some((x) => x === null || x === undefined || x === "")) return 0;
   const PH = +ph, PA = +pa, RH = +rh, RA = +ra;
