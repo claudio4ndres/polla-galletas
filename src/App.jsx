@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
 import {
-  MATCHES, GROUPS, flag, scorePick, DEADLINE, INSCRIPCION, PREMIOS, montoNumber,
+  MATCHES, GROUPS, flag, scorePick, DEADLINE, isLocked, INSCRIPCION, PREMIOS, montoNumber,
 } from "./data";
 
 /* ============================ AUTH WRAPPER ============================ */
@@ -305,9 +305,9 @@ function Footer() {
   return <div className="g-foot"><b>GALLETAS FC</b><br />Santiago Centro · Maipú · Lo Prado · La Cisterna</div>;
 }
 
-function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
+export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
   const now = Date.now();
-  const locked = now >= DEADLINE;
+  const locked = isLocked(now);
   const days = Math.max(0, Math.ceil((DEADLINE - now) / 86400000));
   const [copied, setCopied] = useState(false);
   const T = INSCRIPCION.transferencia;
@@ -408,9 +408,9 @@ function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
                 <div className={"g-match" + state}>
                   <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
                   <div className="g-sb">
-                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[0]} onChange={(e) => setPick(m.id, 0, e.target.value)} />
+                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[0]} aria-label={`${m.home} vs ${m.away} - goles ${m.home}`} onChange={(e) => setPick(m.id, 0, e.target.value)} />
                     <span className="g-colon">:</span>
-                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[1]} onChange={(e) => setPick(m.id, 1, e.target.value)} />
+                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[1]} aria-label={`${m.home} vs ${m.away} - goles ${m.away}`} onChange={(e) => setPick(m.id, 1, e.target.value)} />
                   </div>
                   <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
                   <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
@@ -492,7 +492,25 @@ function PremiosView({ paidCount }) {
   );
 }
 
-function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, players, paidSet, togglePaid }) {
+// Input de resultado con estado local: actualiza visualmente en onChange,
+// pero solo llama setResult (escribe a BD) en onBlur.
+function ResultInput({ value, onCommit }) {
+  const [draft, setDraft] = useState(String(value ?? ""));
+  // Sincroniza si el padre actualiza el valor (ej: reload)
+  useEffect(() => setDraft(String(value ?? "")), [value]);
+  return (
+    <input
+      className="g-sc res"
+      type="number"
+      inputMode="numeric"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={(e) => onCommit(e.target.value)}
+    />
+  );
+}
+
+export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, players, paidSet, togglePaid }) {
   const count = Object.keys(results).length;
   return (
     <>
@@ -553,9 +571,9 @@ function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, pla
                 <div className="g-sb">
                   {editable ? (
                     <>
-                      <input className="g-sc res" type="number" inputMode="numeric" value={r[0]} onChange={(e) => setResult(m.id, 0, e.target.value)} />
+                      <ResultInput value={r[0]} onCommit={(v) => setResult(m.id, 0, v)} />
                       <span className="g-colon">:</span>
-                      <input className="g-sc res" type="number" inputMode="numeric" value={r[1]} onChange={(e) => setResult(m.id, 1, e.target.value)} />
+                      <ResultInput value={r[1]} onCommit={(v) => setResult(m.id, 1, v)} />
                     </>
                   ) : (
                     <span className={"g-rscore" + (has ? "" : " none")}>{has ? `${r[0]} : ${r[1]}` : "—"}</span>
