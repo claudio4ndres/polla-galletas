@@ -1,15 +1,34 @@
-# Polla Mundial 2026 · Galletas FC ⚽🍪
+# Polla Mundial 2026 · Galletas FC
 
-App web para la polla del Mundial 2026 entre las Galletas FC: cada uno entra con su Google,
-pronostica los 72 partidos de la fase de grupos y la tabla se calcula sola.
+App web para la polla del Mundial 2026 del equipo **Galletas FC** (fútbol amateur, Santiago de Chile).
+Cada integrante entra con su cuenta de Google, pronostica los 72 partidos de la fase de grupos y la
+tabla de posiciones se calcula sola. Un organizador carga los resultados reales y administra las
+inscripciones.
 
-- **Login con Google** (sin contraseñas nuevas)
-- **Datos persistentes** en una base de datos (Supabase / Postgres)
-- **Puntaje estándar de 3 niveles**: marcador exacto = 3, ganador + diferencia de goles = 2, signo (gana o empate) = 1
-- **Cierre único** el 11 de junio de 2026 (al arrancar el Mundial todo queda congelado)
-- **Panel de organizador** para cargar los resultados reales
+## Qué hace
 
-Stack: React + Vite (frontend) · Supabase (auth + base de datos) · Vercel (hosting).
+- **Login con Google** (SSO vía Supabase): sin contraseñas nuevas; el nombre sale del perfil de Google.
+- **Pronósticos** de los 72 partidos de la fase de grupos, editables hasta el cierre. Cada uno guarda
+  los suyos con su nombre y aparece en la tabla del equipo.
+- **Tabla de posiciones automática**: se recalcula a medida que el organizador carga resultados.
+- **Puntaje estándar de 3 niveles**: marcador exacto = 3, ganador más diferencia de goles = 2,
+  acertar solo el signo (quién gana o empate) = 1, errar = 0.
+- **Escala de acierto por color**: con el resultado cargado, cada marcador se tiñe según cuánto
+  acertaste (exacto en verde y degradado hacia los aciertos parciales).
+- **Inscripción por transferencia bancaria**: cada jugador ve los datos de transferencia y un botón
+  para copiarlos. El organizador confirma a mano quién pagó; al confirmarse aparece el distintivo
+  Premium en su tarjeta y en la tabla.
+- **Premios**: pantalla con el pozo (la cuota multiplicada por los inscritos confirmados) y cómo se
+  reparte entre los primeros de la tabla (hoy 60/30/10 para el primero, segundo y tercero), editable.
+- **Panel de organizador**: para cargar los resultados reales y marcar las inscripciones pagadas.
+  Solo los correos autorizados pueden escribir resultados y pagos.
+- **Cierre único** el 11 de junio de 2026: al arrancar el Mundial todas las predicciones quedan
+  congeladas.
+- **Reglas explicadas dentro de la app**, con un glosario de signo y diferencia, más un botón
+  "Prueba tu suerte" que autocompleta marcadores al azar para revisar y ajustar antes de guardar.
+- **Tema oscuro** propio del club y diseño responsive.
+
+Stack: React + Vite (frontend) · Supabase (auth con Google y base de datos Postgres) · Vercel (hosting).
 
 ---
 
@@ -89,14 +108,3 @@ Por cada partido:
 - **2 pts** — acertaste el ganador y la diferencia de goles, pero no el marcador (dijiste 2-0 y fue 3-1).
 - **1 pt** — acertaste solo el signo: quién gana, o que fue empate (dijiste 2-0 y fue 1-0; o 1-1 y fue 2-2).
 - **0 pts** — erraste el resultado.
-
----
-
-## Notas
-
-- **Cargar resultados automáticamente desde internet**: en esta versión el organizador los carga a mano
-  (es lo más confiable). Si más adelante quieres que se traigan solos, se puede agregar una función
-  serverless en Vercel que consulte un API de resultados; pídemelo y lo armamos.
-- **Fase de eliminación**: hoy solo está la fase de grupos (72 partidos). Cuando se definan los cruces
-  de 16avos en adelante, se pueden sumar.
-- El logo está en `public/logo.jpg`. Si quieres cambiarlo, reemplaza ese archivo.
