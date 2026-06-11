@@ -93,10 +93,10 @@ export const PREMIOS = [
   { pos: 3, label: "Tercer lugar", pct: 10 },
 ];
 
-// Cierre de pronósticos: el inicio del primer partido (México vs Sudáfrica, Estadio Azteca).
-// 11-jun-2026, 13:00 Ciudad de México = 15:00 Chile (UTC-4) = 19:00 UTC.
+// Cierre de pronósticos: 11-jun-2026 19:00 hora de Chile (UTC-4) = 23:00 UTC.
+// (Extensión manual del plazo de inscripción.)
 // Se expresa en UTC para que sea el mismo instante en cualquier zona horaria. mes 5 = junio (0-indexed).
-export const DEADLINE = Date.UTC(2026, 5, 11, 19, 0, 0);
+export const DEADLINE = Date.UTC(2026, 5, 11, 23, 0, 0);
 
 // Devuelve true si now >= deadline (el momento exacto del deadline ya es bloqueado).
 export function isLocked(now = Date.now(), deadline = DEADLINE) {
