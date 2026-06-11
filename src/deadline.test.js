@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { isLocked, DEADLINE } from "./data.js";
 
-// DEADLINE = 2026-06-11T04:00:00.000Z (UTC)
-// Equivale a: Chile (UTC-4) → 2026-06-11 00:00  |  Seúl (UTC+8) → 2026-06-11 12:00
+// DEADLINE = 2026-06-11T18:00:00.000Z (UTC)
+// Equivale a: Chile (UTC-4) → 2026-06-11 14:00  (cierre de pronósticos)
 
 describe("isLocked", () => {
   describe("antes del deadline", () => {
@@ -40,16 +40,16 @@ describe("isLocked", () => {
     // Ambos usuarios ven el mismo timestamp absoluto; isLocked compara UTC.
 
     it("usuario en Chile (UTC-4): el momento exacto del deadline es el mismo timestamp", () => {
-      // 2026-06-11 00:00 hora Chile = 2026-06-11T04:00Z
-      const deadlineChile = Date.UTC(2026, 5, 11, 4, 0, 0); // +4h offset aplicado
+      // 2026-06-11 14:00 hora Chile = 2026-06-11T18:00Z
+      const deadlineChile = Date.UTC(2026, 5, 11, 18, 0, 0); // +4h offset aplicado
       expect(deadlineChile).toBe(DEADLINE);
       expect(isLocked(deadlineChile)).toBe(true);
       expect(isLocked(deadlineChile - 1)).toBe(false);
     });
 
-    it("usuario en Seúl (UTC+8): el momento exacto del deadline es el mismo timestamp", () => {
-      // 2026-06-11 12:00 hora Seúl = 2026-06-11T04:00Z
-      const deadlineSeul = Date.UTC(2026, 5, 11, 4, 0, 0); // UTC es UTC, mismo valor
+    it("usuario en otra zona horaria: el momento exacto del deadline es el mismo timestamp", () => {
+      // mismo instante UTC sin importar la zona del cliente
+      const deadlineSeul = Date.UTC(2026, 5, 11, 18, 0, 0); // UTC es UTC, mismo valor
       expect(deadlineSeul).toBe(DEADLINE);
       expect(isLocked(deadlineSeul)).toBe(true);
     });

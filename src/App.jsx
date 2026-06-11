@@ -305,10 +305,58 @@ function Footer() {
   return <div className="g-foot"><b>GALLETAS FC</b><br />Santiago Centro · Maipú · Lo Prado · La Cisterna</div>;
 }
 
+/* Cuenta regresiva en vivo hasta el cierre de pronósticos (14:00 hora de Chile). */
+function Countdown({ deadline }) {
+  const [now, setNow] = useState(() => Date.now());
+  const remaining = deadline - now;
+  const closed = remaining <= 0;
+  useEffect(() => {
+    if (closed) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [closed, deadline]);
+
+  if (closed) {
+    return (
+      <div className="g-count closed">
+        <div className="g-count-title">Pronósticos cerrados</div>
+        <p className="g-help">Se acabó el plazo para registrar marcadores. Abajo ves tus puntos a medida que se cargan los resultados.</p>
+      </div>
+    );
+  }
+
+  const totalSec = Math.floor(remaining / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  const tz = { timeZone: "America/Santiago" };
+  const fecha = new Intl.DateTimeFormat("es-CL", { ...tz, day: "numeric", month: "long" }).format(new Date(deadline));
+  const hora = new Intl.DateTimeFormat("es-CL", { ...tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(deadline));
+
+  return (
+    <div className="g-count">
+      <div className="g-count-title">Cierra en</div>
+      <div className="g-count-clock">
+        {d > 0 && (
+          <div className="g-count-box"><span className="g-count-n">{d}</span><span className="g-count-u">{d === 1 ? "día" : "días"}</span></div>
+        )}
+        <div className="g-count-box"><span className="g-count-n">{pad(h)}</span><span className="g-count-u">hrs</span></div>
+        <div className="g-count-box"><span className="g-count-n">{pad(m)}</span><span className="g-count-u">min</span></div>
+        <div className="g-count-box"><span className="g-count-n">{pad(s)}</span><span className="g-count-u">seg</span></div>
+      </div>
+      <p className="g-help">
+        Tienes hasta el <b className="c">{fecha} a las {hora}</b> (hora de Chile) para registrar y editar tus
+        marcadores. Después queda todo congelado.
+      </p>
+    </div>
+  );
+}
+
 export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
   const now = Date.now();
   const locked = isLocked(now);
-  const days = Math.max(0, Math.ceil((DEADLINE - now) / 86400000));
   const [copied, setCopied] = useState(false);
   const T = INSCRIPCION.transferencia;
   const copiarDatos = async () => {
@@ -349,15 +397,12 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
         )}
       </div>
       <div className="g-card">
-        {locked ? (
-          <p className="g-help"><b className="o">🔒 Pronósticos cerrados.</b> El Mundial ya arrancó, así que los
-            marcadores quedaron congelados. Abajo ves tus puntos a medida que se cargan los resultados.</p>
-        ) : (
+        <Countdown deadline={DEADLINE} />
+        {!locked && (
           <>
-            <p className="g-help">
-              Anota el marcador de <b>todos</b> los partidos y toca <b className="c">Guardar</b>. Puedes editar cuantas
-              veces quieras hasta que arranque el Mundial: <b className="c">cierra el 11 de junio</b> (faltan {days} día{days === 1 ? "" : "s"}).
-              Después no se podrá cambiar nada.
+            <p className="g-help" style={{ marginTop: 14 }}>
+              Anota el marcador de <b>todos</b> los partidos y toca <b className="c">Guardar</b>. Puedes editar
+              cuantas veces quieras hasta el cierre; después no se podrá cambiar nada.
             </p>
             <div className="g-rules-t">Cómo se ganan los puntos en cada partido</div>
             <p className="g-help" style={{ marginBottom: 13 }}>

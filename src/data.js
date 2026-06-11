@@ -93,9 +93,10 @@ export const PREMIOS = [
   { pos: 3, label: "Tercer lugar", pct: 10 },
 ];
 
-// El Mundial arranca el 11-jun-2026. Se puede editar hasta ese momento; luego TODO queda cerrado.
-// DEADLINE en UTC: 11-jun-2026 04:00 UTC = 11-jun-2026 00:00 Chile (UTC-4) = 11-jun-2026 12:00 Seúl (UTC+8)
-export const DEADLINE = Date.UTC(2026, 5, 11, 4, 0, 0); // mes 5 = junio (0-indexed)
+// Cierre de pronósticos: 11-jun-2026 14:00 hora de Chile (UTC-4).
+// Se expresa en UTC para que sea el mismo instante en cualquier zona horaria.
+// 14:00 Chile (UTC-4) = 18:00 UTC. mes 5 = junio (0-indexed).
+export const DEADLINE = Date.UTC(2026, 5, 11, 18, 0, 0);
 
 // Devuelve true si now >= deadline (el momento exacto del deadline ya es bloqueado).
 export function isLocked(now = Date.now(), deadline = DEADLINE) {

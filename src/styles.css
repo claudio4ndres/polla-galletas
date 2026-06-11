@@ -113,6 +113,18 @@ body { background: #070e18; }
 
 .g-help{font-size:12.5px;color:var(--mut);line-height:1.6;}
 .g-help b{color:var(--txt);} .g-help .c{color:var(--cyan);} .g-help .o{color:var(--gold);} .g-help .f{color:var(--orange);}
+
+/* Cuenta regresiva hasta el cierre de pronósticos */
+.g-count{text-align:center;padding:2px 0;}
+.g-count-title{font-family:'Anton';font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--cyan);margin-bottom:12px;}
+.g-count-clock{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-bottom:13px;}
+.g-count-box{min-width:62px;background:var(--ink);border:1px solid var(--line2);border-radius:13px;padding:11px 8px 8px;
+  box-shadow:0 6px 18px rgba(0,0,0,.35),0 0 0 1px rgba(46,201,240,.05) inset;}
+.g-count-n{display:block;font-family:'Anton';font-size:30px;line-height:1;color:var(--cyan);letter-spacing:1px;
+  text-shadow:0 0 16px rgba(46,201,240,.45);font-variant-numeric:tabular-nums;}
+.g-count-u{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mut);margin-top:7px;}
+.g-count .g-help{margin:0;}
+.g-count.closed .g-count-title{color:var(--orange);font-size:18px;letter-spacing:1.5px;margin-bottom:8px;}
 .g-rules-t{font-family:'Anton';letter-spacing:.5px;color:var(--txt);font-size:13px;text-transform:uppercase;margin:15px 0 10px;}
 .g-rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;}
 .g-rule{display:flex;align-items:flex-start;gap:11px;}
