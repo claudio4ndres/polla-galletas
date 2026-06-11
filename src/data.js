@@ -18,48 +18,66 @@ export const FLAGS = {
 };
 export const flag = (t) => FLAGS[t] || "⚽";
 
+// Estadios (sede oficial de cada ciudad anfitriona). Código → "Estadio, Ciudad".
+const VENUES = {
+  AZT: "Estadio Azteca, Ciudad de México", AKR: "Estadio Akron, Guadalajara",
+  BBVA: "Estadio BBVA, Monterrey", BMO: "BMO Field, Toronto", BCP: "BC Place, Vancouver",
+  SOFI: "SoFi Stadium, Los Ángeles", LEVI: "Levi's Stadium, San Francisco",
+  MET: "MetLife Stadium, Nueva York", GIL: "Gillette Stadium, Boston", NRG: "NRG Stadium, Houston",
+  ATT: "AT&T Stadium, Dallas", LINC: "Lincoln Financial Field, Filadelfia",
+  MBS: "Mercedes-Benz Stadium, Atlanta", LUM: "Lumen Field, Seattle",
+  HRD: "Hard Rock Stadium, Miami", ARR: "Arrowhead Stadium, Kansas City",
+};
+
+// [grupo, jornada, día-junio, local, visita, hora (Chile, "HH:MM"), código-estadio]
+// La hora está en horario de Chile (= ET de EE.UU. en junio, UTC-4). El "día" es el día real en Chile:
+// los 5 partidos de medianoche (00:00) caen el día siguiente a su jornada.
 const RAW = [
-  ["A", 1, 11, "México", "Sudáfrica"], ["A", 1, 11, "Corea del Sur", "Chequia"],
-  ["A", 2, 18, "Chequia", "Sudáfrica"], ["A", 2, 18, "México", "Corea del Sur"],
-  ["A", 3, 24, "Chequia", "México"], ["A", 3, 24, "Sudáfrica", "Corea del Sur"],
-  ["B", 1, 12, "Canadá", "Bosnia"], ["B", 1, 13, "Catar", "Suiza"],
-  ["B", 2, 18, "Suiza", "Bosnia"], ["B", 2, 18, "Canadá", "Catar"],
-  ["B", 3, 24, "Suiza", "Canadá"], ["B", 3, 24, "Bosnia", "Catar"],
-  ["C", 1, 13, "Brasil", "Marruecos"], ["C", 1, 13, "Haití", "Escocia"],
-  ["C", 2, 19, "Escocia", "Marruecos"], ["C", 2, 19, "Brasil", "Haití"],
-  ["C", 3, 24, "Escocia", "Brasil"], ["C", 3, 24, "Marruecos", "Haití"],
-  ["D", 1, 12, "Estados Unidos", "Paraguay"], ["D", 1, 13, "Australia", "Turquía"],
-  ["D", 2, 19, "Turquía", "Paraguay"], ["D", 2, 19, "Estados Unidos", "Australia"],
-  ["D", 3, 25, "Turquía", "Estados Unidos"], ["D", 3, 25, "Paraguay", "Australia"],
-  ["E", 1, 14, "Alemania", "Curazao"], ["E", 1, 14, "Costa de Marfil", "Ecuador"],
-  ["E", 2, 20, "Alemania", "Costa de Marfil"], ["E", 2, 20, "Ecuador", "Curazao"],
-  ["E", 3, 25, "Ecuador", "Alemania"], ["E", 3, 25, "Curazao", "Costa de Marfil"],
-  ["F", 1, 14, "Países Bajos", "Japón"], ["F", 1, 14, "Suecia", "Túnez"],
-  ["F", 2, 20, "Países Bajos", "Suecia"], ["F", 2, 20, "Túnez", "Japón"],
-  ["F", 3, 25, "Japón", "Suecia"], ["F", 3, 25, "Túnez", "Países Bajos"],
-  ["G", 1, 15, "Irán", "Nueva Zelanda"], ["G", 1, 15, "Bélgica", "Egipto"],
-  ["G", 2, 21, "Bélgica", "Irán"], ["G", 2, 21, "Nueva Zelanda", "Egipto"],
-  ["G", 3, 26, "Egipto", "Irán"], ["G", 3, 26, "Nueva Zelanda", "Bélgica"],
-  ["H", 1, 15, "España", "Cabo Verde"], ["H", 1, 15, "Arabia Saudita", "Uruguay"],
-  ["H", 2, 21, "España", "Arabia Saudita"], ["H", 2, 21, "Uruguay", "Cabo Verde"],
-  ["H", 3, 26, "Cabo Verde", "Arabia Saudita"], ["H", 3, 26, "Uruguay", "España"],
-  ["I", 1, 16, "Francia", "Senegal"], ["I", 1, 16, "Irak", "Noruega"],
-  ["I", 2, 22, "Francia", "Irak"], ["I", 2, 22, "Noruega", "Senegal"],
-  ["I", 3, 26, "Noruega", "Francia"], ["I", 3, 26, "Senegal", "Irak"],
-  ["J", 1, 16, "Argentina", "Argelia"], ["J", 1, 16, "Austria", "Jordania"],
-  ["J", 2, 22, "Argentina", "Austria"], ["J", 2, 22, "Jordania", "Argelia"],
-  ["J", 3, 27, "Argelia", "Austria"], ["J", 3, 27, "Jordania", "Argentina"],
-  ["K", 1, 17, "Portugal", "RD Congo"], ["K", 1, 17, "Uzbekistán", "Colombia"],
-  ["K", 2, 23, "Portugal", "Uzbekistán"], ["K", 2, 23, "Colombia", "RD Congo"],
-  ["K", 3, 27, "Colombia", "Portugal"], ["K", 3, 27, "RD Congo", "Uzbekistán"],
-  ["L", 1, 17, "Inglaterra", "Croacia"], ["L", 1, 17, "Ghana", "Panamá"],
-  ["L", 2, 23, "Inglaterra", "Ghana"], ["L", 2, 23, "Panamá", "Croacia"],
-  ["L", 3, 27, "Panamá", "Inglaterra"], ["L", 3, 27, "Croacia", "Ghana"],
+  ["A", 1, 11, "México", "Sudáfrica", "15:00", "AZT"], ["A", 1, 11, "Corea del Sur", "Chequia", "22:00", "AKR"],
+  ["A", 2, 18, "Chequia", "Sudáfrica", "12:00", "MBS"], ["A", 2, 18, "México", "Corea del Sur", "23:00", "AKR"],
+  ["A", 3, 24, "Chequia", "México", "21:00", "AZT"], ["A", 3, 24, "Sudáfrica", "Corea del Sur", "21:00", "BBVA"],
+  ["B", 1, 12, "Canadá", "Bosnia", "15:00", "BMO"], ["B", 1, 13, "Catar", "Suiza", "15:00", "LEVI"],
+  ["B", 2, 18, "Suiza", "Bosnia", "15:00", "SOFI"], ["B", 2, 18, "Canadá", "Catar", "18:00", "BCP"],
+  ["B", 3, 24, "Suiza", "Canadá", "15:00", "BCP"], ["B", 3, 24, "Bosnia", "Catar", "15:00", "LUM"],
+  ["C", 1, 13, "Brasil", "Marruecos", "18:00", "MET"], ["C", 1, 13, "Haití", "Escocia", "21:00", "GIL"],
+  ["C", 2, 19, "Escocia", "Marruecos", "18:00", "GIL"], ["C", 2, 19, "Brasil", "Haití", "21:00", "LINC"],
+  ["C", 3, 24, "Escocia", "Brasil", "18:00", "HRD"], ["C", 3, 24, "Marruecos", "Haití", "18:00", "MBS"],
+  ["D", 1, 12, "Estados Unidos", "Paraguay", "21:00", "SOFI"], ["D", 1, 14, "Australia", "Turquía", "00:00", "BCP"],
+  ["D", 2, 20, "Turquía", "Paraguay", "00:00", "LEVI"], ["D", 2, 19, "Estados Unidos", "Australia", "15:00", "LUM"],
+  ["D", 3, 25, "Turquía", "Estados Unidos", "22:00", "SOFI"], ["D", 3, 25, "Paraguay", "Australia", "22:00", "LEVI"],
+  ["E", 1, 14, "Alemania", "Curazao", "13:00", "NRG"], ["E", 1, 14, "Costa de Marfil", "Ecuador", "19:00", "LINC"],
+  ["E", 2, 20, "Alemania", "Costa de Marfil", "16:00", "BMO"], ["E", 2, 20, "Ecuador", "Curazao", "20:00", "ARR"],
+  ["E", 3, 25, "Ecuador", "Alemania", "16:00", "MET"], ["E", 3, 25, "Curazao", "Costa de Marfil", "16:00", "LINC"],
+  ["F", 1, 14, "Países Bajos", "Japón", "16:00", "ATT"], ["F", 1, 14, "Suecia", "Túnez", "22:00", "BBVA"],
+  ["F", 2, 20, "Países Bajos", "Suecia", "13:00", "NRG"], ["F", 2, 21, "Túnez", "Japón", "00:00", "BBVA"],
+  ["F", 3, 25, "Japón", "Suecia", "19:00", "ATT"], ["F", 3, 25, "Túnez", "Países Bajos", "19:00", "ARR"],
+  ["G", 1, 16, "Irán", "Nueva Zelanda", "00:00", "SOFI"], ["G", 1, 15, "Bélgica", "Egipto", "18:00", "LUM"],
+  ["G", 2, 21, "Bélgica", "Irán", "15:00", "SOFI"], ["G", 2, 21, "Nueva Zelanda", "Egipto", "21:00", "BCP"],
+  ["G", 3, 26, "Egipto", "Irán", "23:00", "LUM"], ["G", 3, 26, "Nueva Zelanda", "Bélgica", "23:00", "BCP"],
+  ["H", 1, 15, "España", "Cabo Verde", "13:00", "MBS"], ["H", 1, 15, "Arabia Saudita", "Uruguay", "18:00", "HRD"],
+  ["H", 2, 21, "España", "Arabia Saudita", "12:00", "MBS"], ["H", 2, 21, "Uruguay", "Cabo Verde", "18:00", "HRD"],
+  ["H", 3, 26, "Cabo Verde", "Arabia Saudita", "20:00", "NRG"], ["H", 3, 26, "Uruguay", "España", "20:00", "AKR"],
+  ["I", 1, 16, "Francia", "Senegal", "15:00", "MET"], ["I", 1, 16, "Irak", "Noruega", "18:00", "GIL"],
+  ["I", 2, 22, "Francia", "Irak", "17:00", "LINC"], ["I", 2, 22, "Noruega", "Senegal", "20:00", "MET"],
+  ["I", 3, 26, "Noruega", "Francia", "15:00", "GIL"], ["I", 3, 26, "Senegal", "Irak", "15:00", "BMO"],
+  ["J", 1, 16, "Argentina", "Argelia", "21:00", "ARR"], ["J", 1, 17, "Austria", "Jordania", "00:00", "LEVI"],
+  ["J", 2, 22, "Argentina", "Austria", "13:00", "ATT"], ["J", 2, 22, "Jordania", "Argelia", "23:00", "LEVI"],
+  ["J", 3, 27, "Argelia", "Austria", "22:00", "ARR"], ["J", 3, 27, "Jordania", "Argentina", "22:00", "ATT"],
+  ["K", 1, 17, "Portugal", "RD Congo", "13:00", "NRG"], ["K", 1, 17, "Uzbekistán", "Colombia", "22:00", "AZT"],
+  ["K", 2, 23, "Portugal", "Uzbekistán", "13:00", "NRG"], ["K", 2, 23, "Colombia", "RD Congo", "22:00", "AKR"],
+  ["K", 3, 27, "Colombia", "Portugal", "19:30", "HRD"], ["K", 3, 27, "RD Congo", "Uzbekistán", "19:30", "MBS"],
+  ["L", 1, 17, "Inglaterra", "Croacia", "16:00", "ATT"], ["L", 1, 17, "Ghana", "Panamá", "19:00", "BMO"],
+  ["L", 2, 23, "Inglaterra", "Ghana", "16:00", "GIL"], ["L", 2, 23, "Panamá", "Croacia", "19:00", "BMO"],
+  ["L", 3, 27, "Panamá", "Inglaterra", "17:00", "MET"], ["L", 3, 27, "Croacia", "Ghana", "17:00", "LINC"],
 ];
 
-export const MATCHES = RAW.map((m, i) => ({
-  id: "m" + i, group: m[0], jornada: m[1], day: m[2], home: m[3], away: m[4],
-}));
+export const MATCHES = RAW.map((m, i) => {
+  const [group, jornada, day, home, away, time, venueCode] = m;
+  const [H, M] = time.split(":").map(Number);
+  // Hora guardada en horario de Chile (UTC-4 en junio). UTC = Chile + 4h; Date.UTC normaliza el desborde.
+  const kickoff = Date.UTC(2026, 5, day, H + 4, M, 0);
+  return { id: "m" + i, group, jornada, day, home, away, time, venue: VENUES[venueCode], kickoff };
+});
 
 export const GROUPS = [..."ABCDEFGHIJKL"];
 export const PTS_EXACT = 3, PTS_DIFF = 2, PTS_SIGN = 1;

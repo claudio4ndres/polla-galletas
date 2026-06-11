@@ -453,6 +453,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           <button className="g-btn ghost" onClick={fillRandom}>Prueba tu suerte</button>
         </div>
       )}
+      <div className="g-tznote">Fecha, hora y estadio de cada partido — en horario de Chile.</div>
       {GROUPS.map((g) => (
         <div className="g-card" key={g}>
           <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>
@@ -472,7 +473,8 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                   <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
                   <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
                 </div>
-                {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""} · J{m.jornada} · {m.day} jun</div>}
+                <div className="g-mt">J{m.jornada} · {m.day} jun · {m.time} · {m.venue}</div>
+                {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
               </div>
             );
           })}
