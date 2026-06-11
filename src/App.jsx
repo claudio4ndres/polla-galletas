@@ -448,14 +448,15 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           {MATCHES.filter((m) => m.group === g).map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
+            const matchLocked = locked || !!r; // bloquea el marcador si la polla cerró O el partido ya tiene resultado cargado
             return (
               <div key={m.id}>
                 <div className={"g-match" + state}>
                   <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
                   <div className="g-sb">
-                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[0]} aria-label={`${m.home} vs ${m.away} - goles ${m.home}`} onChange={(e) => setPick(m.id, 0, e.target.value)} />
+                    <input className="g-sc" type="number" inputMode="numeric" disabled={matchLocked} value={p[0]} aria-label={`${m.home} vs ${m.away} - goles ${m.home}`} onChange={(e) => setPick(m.id, 0, e.target.value)} />
                     <span className="g-colon">:</span>
-                    <input className="g-sc" type="number" inputMode="numeric" disabled={locked} value={p[1]} aria-label={`${m.home} vs ${m.away} - goles ${m.away}`} onChange={(e) => setPick(m.id, 1, e.target.value)} />
+                    <input className="g-sc" type="number" inputMode="numeric" disabled={matchLocked} value={p[1]} aria-label={`${m.home} vs ${m.away} - goles ${m.away}`} onChange={(e) => setPick(m.id, 1, e.target.value)} />
                   </div>
                   <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
                   <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
