@@ -20,7 +20,7 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 
 ## Estructura
 - `src/App.jsx` — auth (Google), vistas Pronósticos / Tabla / Premios / Resultados, lógica de guardado.
-- `src/data.js` — `MATCHES` (72 partidos), `FLAGS`, `scorePick()`, `DEADLINE`, constantes de puntaje, `INSCRIPCION` (datos de transferencia bancaria + monto), `montoNumber` y `PREMIOS` (reparto del pozo).
+- `src/data.js` — `MATCHES` (72 partidos), `FLAGS`, `scorePick()`, `DEADLINE` + `isLocked()`, constantes de puntaje, `INSCRIPCION` (datos de transferencia bancaria + monto), `montoNumber` y `PREMIOS` (reparto del pozo).
 - `src/styles.css` — tema oscuro "eléctrico" de Galletas FC.
 - `src/supabaseClient.js` — cliente Supabase (lee variables de entorno).
 - `supabase/schema.sql` — tablas `predictions`, `results`, `admins`, `payments` + reglas RLS. Correr en Supabase.
@@ -42,8 +42,10 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
   - Acertar solo el signo 1-X-2 (quién gana, o que fue empate) = **1**
   - Errar el signo = **0**
 - **Empate**: cuenta como un signo más; exacto vale 3, acertar que fue empate sin marcador vale 1.
-- **Cierre único**: todas las predicciones se pueden editar hasta el inicio del Mundial
-  (`DEADLINE = 11-jun-2026 00:00` local). Después, todo congelado. No hay bloqueo partido por partido.
+- **Cierre único**: todas las predicciones se pueden editar hasta el cierre
+  (`DEADLINE = 11-jun-2026 14:00` hora de Chile, UTC-4). Se define en UTC (`Date.UTC(2026,5,11,18,0,0)`)
+  para que sea el mismo instante en cualquier zona horaria; el bloqueo lo decide `isLocked(now)` (`data.js`).
+  Después, todo congelado. No hay bloqueo partido por partido.
 - **Identidad**: login con Google (Supabase Auth); el nombre sale del perfil de Google.
 
 ## Interfaz y features (decisiones tomadas)
@@ -62,6 +64,10 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - **Reglas explicadas en la app**: la vista Pronósticos muestra "Cómo se ganan los puntos en cada
   partido" con un glosario que define **signo** (quién gana o empate, 1-X-2) y **diferencia** (por
   cuántos goles gana), más la lista de los 4 niveles (3/2/1/0) con ejemplos.
+- **Cuenta regresiva del cierre** (`Countdown` en `App.jsx`): en Pronósticos, una tarjeta muestra un
+  contador en vivo (DÍAS/HRS/MIN/SEG, tickea cada segundo) hasta `DEADLINE`, con la fecha y hora
+  formateadas en hora de Chile (`Intl.DateTimeFormat` con `timeZone:"America/Santiago"`). Al cumplirse
+  el plazo cambia solo a **"Pronósticos cerrados"** (en naranjo, sin íconos). CSS en `.g-count*`.
 - **Identificador de aciertos (escala de calor)**: cuando hay resultado cargado, el marcador del
   jugador y el chip de puntos se tintan según el acierto: exacto = **verde** (`--green #26e08a`, con
   glow y etiqueta "Exacto"), +2 = **naranjo**, +1 = **dorado**, +0 = **gris**. CSS en `.g-match.won/.p2/.p1/.p0`.
