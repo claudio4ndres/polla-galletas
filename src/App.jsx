@@ -81,6 +81,7 @@ function Polla({ session }) {
   const [players, setPlayers] = useState([]);
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(true);
+  const [registered, setRegistered] = useState(false); // true cuando el usuario ya guardó (registró) sus pronósticos
   const show = (m) => { setToast(m); setTimeout(() => setToast(""), 1900); };
 
   // Carga inicial: mis pronósticos, resultados, y si soy admin.
@@ -92,7 +93,7 @@ function Polla({ session }) {
         checkAdmin(myEmail),
         loadPayments(),
       ]);
-      if (mine?.picks) setPicks(mine.picks);
+      if (mine?.picks) { setPicks(mine.picks); setRegistered(true); }
       // Respeta el nombre guardado solo si es un nombre de verdad (no un correo); así no pisa lo que cada uno editó.
       if (mine?.name && !mine.name.includes("@")) setDisplayName(mine.name);
       setResults(resMap);
@@ -108,10 +109,13 @@ function Polla({ session }) {
   };
 
   const savePicks = async () => {
+    if (!window.confirm("Una vez que guardes, tus pronósticos quedan fijos y no los podrás editar. ¿Guardar ahora?")) return;
     const { error } = await supabase.from("predictions").upsert({
       user_id: user.id, name: displayName, picks, updated_at: new Date().toISOString(),
     });
-    show(error ? "Error al guardar" : "✓ Pronósticos guardados");
+    if (error) { show("Error al guardar"); return; }
+    setRegistered(true); // al guardar, los marcadores quedan fijos para este usuario
+    show("✓ Pronósticos guardados");
   };
 
   // "Prueba tu suerte": rellena los 72 marcadores al azar (sin guardar todavía).
@@ -250,7 +254,7 @@ function Polla({ session }) {
         <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
       </div>
 
-      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} />}
+      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} registered={registered} />}
       {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} paidSet={paidSet} />}
       {tab === "premios" && <PremiosView paidCount={paidSet.size} />}
       {tab === "res" && (
@@ -354,7 +358,7 @@ function Countdown({ deadline }) {
   );
 }
 
-export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
+export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid, registered }) {
   const now = Date.now();
   const locked = isLocked(now);
   const [copied, setCopied] = useState(false);
@@ -397,8 +401,15 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
         )}
       </div>
       <div className="g-card">
-        <Countdown deadline={DEADLINE} />
-        {!locked && (
+        {registered ? (
+          <p className="g-help">
+            <b className="c">Ya guardaste tus pronósticos</b> y quedaron fijos: no se pueden editar. Abajo ves tus
+            marcadores y, a medida que se carguen los resultados, tus puntos.
+          </p>
+        ) : (
+          <Countdown deadline={DEADLINE} />
+        )}
+        {!locked && !registered && (
           <>
             <p className="g-help" style={{ marginTop: 14 }}>
               Anota el marcador de <b>todos</b> los partidos y toca <b className="c">Guardar</b>. Puedes editar
@@ -433,7 +444,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           </>
         )}
       </div>
-      {!locked && (
+      {!locked && !registered && (
         <div className="g-card">
           <p className="g-help" style={{ marginBottom: 12 }}>
             ¿Sin tiempo para pensar los 72 partidos? Deja que la suerte decida: llenamos
@@ -448,7 +459,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           {MATCHES.filter((m) => m.group === g).map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
-            const matchLocked = locked || !!r; // bloquea el marcador si la polla cerró O el partido ya tiene resultado cargado
+            const matchLocked = locked || registered || !!r; // bloqueado si la polla cerró, el usuario ya guardó, o el partido ya tiene resultado
             return (
               <div key={m.id}>
                 <div className={"g-match" + state}>
@@ -467,7 +478,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           })}
         </div>
       ))}
-      {!locked && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
+      {!locked && !registered && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
     </>
   );
 }
