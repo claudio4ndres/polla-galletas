@@ -132,13 +132,24 @@ body { background: #070e18; }
 .g-count-u{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mut);margin-top:7px;}
 .g-count .g-help{margin:0;}
 .g-count.closed .g-count-title{color:var(--orange);font-size:18px;letter-spacing:1.5px;margin-bottom:8px;}
-.g-count-main{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;}
+.g-count-main{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:nowrap;margin-bottom:12px;}
 .g-count-fl{font-size:42px;line-height:1;filter:drop-shadow(0 3px 7px rgba(0,0,0,.45));}
 .g-count.big .g-count-title{font-size:15px;}
 .g-count.big .g-count-clock{margin-bottom:0;}
 .g-count.big .g-count-n{font-size:42px;}
 .g-count.big .g-count-box{min-width:74px;padding:14px 10px 9px;}
 .g-count-btn{margin-top:14px;}
+/* En pantallas angostas achicamos el contador para que bandera + cajas + bandera quepan en una línea */
+@media (max-width: 520px) {
+  .g-count-main{gap:7px;}
+  .g-count-clock{gap:5px;}
+  .g-count-fl{font-size:26px;}
+  .g-count.big .g-count-title{font-size:13px;letter-spacing:2px;}
+  .g-count.big .g-count-n{font-size:25px;}
+  .g-count.big .g-count-box{min-width:43px;padding:8px 4px 6px;}
+  .g-count.big .g-count-u{font-size:9px;letter-spacing:1px;margin-top:4px;}
+  .g-count.big .g-count-clock{flex-wrap:nowrap;}
+}
 .g-rules-t{font-family:'Anton';letter-spacing:.5px;color:var(--txt);font-size:13px;text-transform:uppercase;margin:15px 0 10px;}
 .g-rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;}
 .g-rule{display:flex;align-items:flex-start;gap:11px;}
