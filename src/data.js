@@ -121,10 +121,10 @@ export function isLocked(now = Date.now(), deadline = DEADLINE) {
   return now >= deadline;
 }
 
-// Modo "en vivo": cada partido SE ABRE para editar 30 min antes de empezar y se cierra al arrancar.
+// Cierre por partido: se puede editar hasta 30 min antes de su inicio; desde ahí queda cerrado.
 export const LOCK_BEFORE_MS = 30 * 60 * 1000;
-export function isMatchOpen(match, now = Date.now()) {
-  return now >= match.kickoff - LOCK_BEFORE_MS && now < match.kickoff;
+export function isMatchLocked(match, now = Date.now()) {
+  return now >= match.kickoff - LOCK_BEFORE_MS;
 }
 
 // Puntaje estándar de 3 niveles: exacto / diferencia de goles / signo (1-X-2).

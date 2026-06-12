@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
 import {
-  MATCHES, GROUPS, flag, scorePick, isMatchOpen, LOCK_BEFORE_MS, INSCRIPCION, PREMIOS, montoNumber,
+  MATCHES, GROUPS, flag, scorePick, isMatchLocked, LOCK_BEFORE_MS, INSCRIPCION, PREMIOS, montoNumber,
 } from "./data";
 
 /* ============================ AUTH WRAPPER ============================ */
@@ -237,7 +237,6 @@ function Polla({ session }) {
               👤 {displayName} · <b>{myPts}</b> pts
               <button className="g-edit" onClick={() => { setNameDraft(displayName); setEditingName(true); }}>Editar</button>
             </span>
-            {amPaid && <span className="g-prem">★ Premium</span>}
           </>
         )}
         <button className="g-logout" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
@@ -306,7 +305,7 @@ function Footer() {
 }
 
 /* Cuenta regresiva en vivo hacia `target` (apertura o cierre del próximo partido). */
-function Countdown({ target, title, subText, onElapsed }) {
+function Countdown({ target, title, subText, match, editable, onScroll, onElapsed }) {
   const [now, setNow] = useState(() => Date.now());
   const remaining = target ? target - now : -1;
   const closed = !target || remaining <= 0;
@@ -336,17 +335,24 @@ function Countdown({ target, title, subText, onElapsed }) {
   const pad = (n) => String(n).padStart(2, "0");
 
   return (
-    <div className="g-count">
+    <div className="g-count big">
       <div className="g-count-title">{title}</div>
-      <div className="g-count-clock">
-        {d > 0 && (
-          <div className="g-count-box"><span className="g-count-n">{d}</span><span className="g-count-u">{d === 1 ? "día" : "días"}</span></div>
-        )}
-        <div className="g-count-box"><span className="g-count-n">{pad(h)}</span><span className="g-count-u">hrs</span></div>
-        <div className="g-count-box"><span className="g-count-n">{pad(m)}</span><span className="g-count-u">min</span></div>
-        <div className="g-count-box"><span className="g-count-n">{pad(s)}</span><span className="g-count-u">seg</span></div>
+      <div className="g-count-main">
+        {match && <span className="g-count-fl">{flag(match.home)}</span>}
+        <div className="g-count-clock">
+          {d > 0 && (
+            <div className="g-count-box"><span className="g-count-n">{d}</span><span className="g-count-u">{d === 1 ? "día" : "días"}</span></div>
+          )}
+          <div className="g-count-box"><span className="g-count-n">{pad(h)}</span><span className="g-count-u">hrs</span></div>
+          <div className="g-count-box"><span className="g-count-n">{pad(m)}</span><span className="g-count-u">min</span></div>
+          <div className="g-count-box"><span className="g-count-n">{pad(s)}</span><span className="g-count-u">seg</span></div>
+        </div>
+        {match && <span className="g-count-fl">{flag(match.away)}</span>}
       </div>
       <p className="g-help">{subText}</p>
+      {editable && match && onScroll && (
+        <button className="g-btn cyan g-count-btn" onClick={() => onScroll(match.id)}>Poner mi marcador</button>
+      )}
     </div>
   );
 }
@@ -365,20 +371,17 @@ function fmtLeft(ms) {
 
 export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
   const now = Date.now();
-  // Modo en vivo: cada partido se edita solo en sus 30 min previos al inicio; cerrado el resto del tiempo.
-  const openNow = MATCHES.filter((m) => isMatchOpen(m, now)).sort((a, b) => a.kickoff - b.kickoff);
-  const toOpen = MATCHES.filter((m) => now < m.kickoff - LOCK_BEFORE_MS).sort((a, b) => a.kickoff - b.kickoff);
-  const done = openNow.length === 0 && toOpen.length === 0; // ni abiertos ni por abrir → cerrado todo
-  // Contador grande: si hay algo editable ahora apunta a su cierre; si no, al próximo en abrir.
+  // Cierre por partido: editable hasta 30 min antes de su inicio; desde ahí, cerrado.
+  const openMatches = MATCHES.filter((m) => !isMatchLocked(m, now)).sort((a, b) => a.kickoff - b.kickoff);
+  const nextMatch = openMatches[0] || null;        // el próximo en cerrar
+  const allLocked = !nextMatch;                    // ya cerraron todos
+  // Contador grande: apunta al cierre del próximo partido (30 min antes de su inicio).
   let cd = null;
-  if (openNow.length) {
-    const mm = openNow[0];
-    cd = { target: mm.kickoff, title: "Editable ahora", subText: <>Edita <b className="c">{mm.home} vs {mm.away}</b> — cierra cuando empieza ({mm.time}).</> };
-  } else if (toOpen.length) {
-    const mm = toOpen[0];
-    cd = { target: mm.kickoff - LOCK_BEFORE_MS, title: "Próximo en abrir", subText: <>Se abre <b className="c">{mm.home} vs {mm.away}</b> ({mm.day} jun · {mm.time}) 30 min antes de empezar.</> };
+  if (nextMatch) {
+    const mm = nextMatch;
+    cd = { target: mm.kickoff - LOCK_BEFORE_MS, title: "Próximo cierre", match: mm, editable: true, subText: <>Cierra <b className="c">{mm.home} vs {mm.away}</b> ({mm.day} jun · {mm.time}) — 30 min antes de empezar.</> };
   }
-  const [, forceTick] = useState(0);               // re-render al abrir/cerrar cada partido
+  const [, forceTick] = useState(0);               // re-render al cerrar cada partido
   const [copied, setCopied] = useState(false);
   useEffect(() => {                                // refresca el "cierra en…" de cada partido cada 30 s
     const id = setInterval(() => forceTick((t) => t + 1), 30000);
@@ -392,6 +395,13 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch (e) { /* algunos navegadores bloquean el portapapeles; el jugador puede copiar a mano */ }
+  };
+  const scrollToMatch = (id) => {                   // lleva la pantalla a la celda del partido y enfoca el marcador
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const input = el.querySelector("input:not([disabled])");
+    if (input) setTimeout(() => input.focus(), 450);
   };
   return (
     <>
@@ -423,39 +433,13 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
         )}
       </div>
       <div className="g-card">
-        <Countdown target={cd ? cd.target : null} title={cd ? cd.title : ""} subText={cd ? cd.subText : null} onElapsed={() => forceTick((t) => t + 1)} />
-        {!done && (
+        <Countdown target={cd ? cd.target : null} title={cd ? cd.title : ""} subText={cd ? cd.subText : null} match={cd ? cd.match : null} editable={cd ? cd.editable : false} onScroll={scrollToMatch} onElapsed={() => forceTick((t) => t + 1)} />
+        {!allLocked && (
           <>
             <p className="g-help" style={{ marginTop: 14 }}>
-              <b className="c">Cada partido se abre para editar 30 minutos antes de empezar</b> y se cierra cuando arranca.
-              Anota tu marcador en esa ventana y toca <b className="c">Guardar</b>.
+              Puedes editar cada partido <b className="c">hasta 30 minutos antes de que empiece</b>; desde ahí queda cerrado.
+              Anota tus marcadores y toca <b className="c">Guardar</b>.
             </p>
-            <div className="g-rules-t">Cómo se ganan los puntos en cada partido</div>
-            <p className="g-help" style={{ marginBottom: 13 }}>
-              Antes que nada, dos palabras: el <b className="o">signo</b> es <b>quién gana o si terminó empate</b> (lo que se conoce
-              como 1‑X‑2), y la <b className="f">diferencia</b> es <b>por cuántos goles gana</b> el equipo (por 1, por 2, etc.).
-            </p>
-            <ul className="g-rules">
-              <li className="g-rule">
-                <span className="g-rp c">3</span>
-                <span className="g-rtx"><b>Marcador exacto.</b> Acertaste los goles tal cual, los de cada equipo.
-                  <span className="g-rex"> Ej.: pones 2-1 y queda 2-1.</span></span>
-              </li>
-              <li className="g-rule">
-                <span className="g-rp f">2</span>
-                <span className="g-rtx"><b>Acertaste el ganador y la diferencia de goles</b>, pero no el marcador exacto.
-                  <span className="g-rex"> Ej.: pones 2-1 y queda 3-2; en los dos gana el local por 1 gol.</span></span>
-              </li>
-              <li className="g-rule">
-                <span className="g-rp o">1</span>
-                <span className="g-rtx"><b>Acertaste solo el signo</b> (quién gana, o que fue empate), pero no la diferencia.
-                  <span className="g-rex"> Ej.: pones 2-1 y queda 3-0, igual gana el local; o pones 1-1 y queda 0-0, igual es empate.</span></span>
-              </li>
-              <li className="g-rule">
-                <span className="g-rp z">0</span>
-                <span className="g-rtx"><b>Erraste el signo.</b> El partido se fue para el otro lado: ganó el rival, o hubo empate cuando esperabas ganador (o al revés).</span>
-              </li>
-            </ul>
           </>
         )}
       </div>
@@ -466,11 +450,10 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           {MATCHES.filter((m) => m.group === g).map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
-            const open = isMatchOpen(m, now);                    // editable solo en su ventana de 30 min
-            const matchLocked = !!r || !open;                    // bloqueado si tiene resultado o no está en ventana
-            const toOpenMs = m.kickoff - LOCK_BEFORE_MS - now;   // >0 → todavía no se abre
+            const matchLocked = !!r || isMatchLocked(m, now);    // bloqueado si tiene resultado o faltan ≤30 min para empezar
+            const timeLeft = m.kickoff - LOCK_BEFORE_MS - now;   // ms hasta que cierre la edición
             return (
-              <div key={m.id}>
+              <div key={m.id} id={m.id}>
                 <div className={"g-match" + state}>
                   <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
                   <div className="g-sb">
@@ -482,18 +465,16 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                   <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
                 </div>
                 <div className="g-mt">J{m.jornada} · {m.day} jun · {m.time} · {m.venue}</div>
-                {!r && (toOpenMs > 0
-                  ? <div className="g-lockin">Abre en {fmtLeft(toOpenMs)}</div>
-                  : open
-                    ? <div className="g-lockin open">Editable · cierra en {fmtLeft(m.kickoff - now)}</div>
-                    : <div className="g-lockin closed">Cerrado</div>)}
+                {!r && (timeLeft <= 0
+                  ? <div className="g-lockin closed">Cerrado</div>
+                  : <div className={"g-lockin" + (timeLeft < 3600000 ? " soon" : "")}>Cierra en {fmtLeft(timeLeft)}</div>)}
                 {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
               </div>
             );
           })}
         </div>
       ))}
-      {openNow.length > 0 && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
+      {!allLocked && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
     </>
   );
 }
