@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabaseClient";
 import {
-  MATCHES, GROUPS, flag, scorePick, DEADLINE, isLocked, INSCRIPCION, PREMIOS, montoNumber,
+  MATCHES, GROUPS, flag, scorePick, isMatchLocked, LOCK_BEFORE_MS, INSCRIPCION, PREMIOS, montoNumber,
 } from "./data";
 
 /* ============================ AUTH WRAPPER ============================ */
@@ -309,22 +309,25 @@ function Footer() {
   return <div className="g-foot"><b>GALLETAS FC</b><br />Santiago Centro · Maipú · Lo Prado · La Cisterna</div>;
 }
 
-/* Cuenta regresiva en vivo hasta el cierre de pronósticos (14:00 hora de Chile). */
-function Countdown({ deadline }) {
+/* Cuenta regresiva en vivo hasta el cierre del próximo partido (cada uno cierra 30 min antes de empezar). */
+function Countdown({ lockAt, match, onElapsed }) {
   const [now, setNow] = useState(() => Date.now());
-  const remaining = deadline - now;
-  const closed = remaining <= 0;
+  const remaining = lockAt ? lockAt - now : -1;
+  const closed = !lockAt || remaining <= 0;
   useEffect(() => {
     if (closed) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => {
+      setNow(Date.now());
+      if (Date.now() >= lockAt && onElapsed) onElapsed();
+    }, 1000);
     return () => clearInterval(id);
-  }, [closed, deadline]);
+  }, [closed, lockAt, onElapsed]);
 
   if (closed) {
     return (
       <div className="g-count closed">
         <div className="g-count-title">Pronósticos cerrados</div>
-        <p className="g-help">Se acabó el plazo para registrar marcadores. Abajo ves tus puntos a medida que se cargan los resultados.</p>
+        <p className="g-help">Ya cerraron todos los partidos (cada uno cierra 30 min antes de empezar). Abajo ves tus puntos a medida que se cargan los resultados.</p>
       </div>
     );
   }
@@ -335,13 +338,10 @@ function Countdown({ deadline }) {
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
   const pad = (n) => String(n).padStart(2, "0");
-  const tz = { timeZone: "America/Santiago" };
-  const fecha = new Intl.DateTimeFormat("es-CL", { ...tz, day: "numeric", month: "long" }).format(new Date(deadline));
-  const hora = new Intl.DateTimeFormat("es-CL", { ...tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(deadline));
 
   return (
     <div className="g-count">
-      <div className="g-count-title">Cierra en</div>
+      <div className="g-count-title">Próximo cierre</div>
       <div className="g-count-clock">
         {d > 0 && (
           <div className="g-count-box"><span className="g-count-n">{d}</span><span className="g-count-u">{d === 1 ? "día" : "días"}</span></div>
@@ -351,17 +351,37 @@ function Countdown({ deadline }) {
         <div className="g-count-box"><span className="g-count-n">{pad(s)}</span><span className="g-count-u">seg</span></div>
       </div>
       <p className="g-help">
-        Tienes hasta el <b className="c">{fecha} a las {hora}</b> (hora de Chile) para registrar y editar tus
-        marcadores. Después queda todo congelado.
+        Cierra <b className="c">{match.home} vs {match.away}</b> ({match.day} jun · {match.time}). Cada partido se puede
+        editar hasta 30 min antes de empezar.
       </p>
     </div>
   );
 }
 
+// Formatea el tiempo que falta para que un partido cierre su edición (ej. "2h 15m", "45 min", "3d 4h").
+function fmtLeft(ms) {
+  const totalMin = Math.floor(ms / 60000);
+  if (totalMin <= 0) return "menos de 1 min";
+  const d = Math.floor(totalMin / 1440);
+  const h = Math.floor((totalMin % 1440) / 60);
+  const m = totalMin % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m} min`;
+}
+
 export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid, registered }) {
   const now = Date.now();
-  const locked = isLocked(now);
+  // Cierre por partido: un partido está abierto si faltan más de 30 min para su inicio.
+  const openMatches = MATCHES.filter((m) => !isMatchLocked(m, now)).sort((a, b) => a.kickoff - b.kickoff);
+  const nextMatch = openMatches[0] || null;        // el próximo en cerrar
+  const allLocked = !nextMatch;                    // ya cerraron todos
+  const [, forceTick] = useState(0);               // re-render al cerrar cada partido (avanza al siguiente)
   const [copied, setCopied] = useState(false);
+  useEffect(() => {                                // refresca el "cierra en…" de cada partido cada 30 s
+    const id = setInterval(() => forceTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
   const T = INSCRIPCION.transferencia;
   const copiarDatos = async () => {
     const txt = `Titular: ${T.titular}\nRUT: ${T.rut}\n${T.banco} · ${T.tipo}\nCuenta: ${T.cuenta}\nCorreo: ${T.email}`;
@@ -407,9 +427,9 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             marcadores y, a medida que se carguen los resultados, tus puntos.
           </p>
         ) : (
-          <Countdown deadline={DEADLINE} />
+          <Countdown lockAt={nextMatch ? nextMatch.kickoff - LOCK_BEFORE_MS : null} match={nextMatch} onElapsed={() => forceTick((t) => t + 1)} />
         )}
-        {!locked && !registered && (
+        {!allLocked && !registered && (
           <>
             <p className="g-help" style={{ marginTop: 14 }}>
               Anota el marcador de <b>todos</b> los partidos y toca <b className="c">Guardar</b>. Puedes editar
@@ -444,7 +464,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           </>
         )}
       </div>
-      {!locked && !registered && (
+      {!allLocked && !registered && (
         <div className="g-card">
           <p className="g-help" style={{ marginBottom: 12 }}>
             ¿Sin tiempo para pensar los 72 partidos? Deja que la suerte decida: llenamos
@@ -460,7 +480,8 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           {MATCHES.filter((m) => m.group === g).map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
-            const matchLocked = locked || registered || !!r; // bloqueado si la polla cerró, el usuario ya guardó, o el partido ya tiene resultado
+            const matchLocked = registered || !!r || isMatchLocked(m, now); // bloqueado si ya guardaste, el partido tiene resultado, o faltan ≤30 min para su inicio
+            const timeLeft = m.kickoff - LOCK_BEFORE_MS - now; // ms hasta que cierre la edición de este partido
             return (
               <div key={m.id}>
                 <div className={"g-match" + state}>
@@ -474,13 +495,16 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                   <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
                 </div>
                 <div className="g-mt">J{m.jornada} · {m.day} jun · {m.time} · {m.venue}</div>
+                {!r && (timeLeft <= 0
+                  ? <div className="g-lockin closed">Edición cerrada</div>
+                  : <div className={"g-lockin" + (timeLeft < 3600000 ? " soon" : "")}>Cierra en {fmtLeft(timeLeft)}</div>)}
                 {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
               </div>
             );
           })}
         </div>
       ))}
-      {!locked && !registered && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
+      {!allLocked && !registered && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
     </>
   );
 }

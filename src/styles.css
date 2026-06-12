@@ -81,6 +81,9 @@ body { background: #070e18; }
 .g-note{font-size:10.5px;text-align:center;margin-top:4px;letter-spacing:.6px;text-transform:uppercase;}
 .g-note.fin{color:var(--cyan);}
 .g-mt{font-size:11px;color:var(--mut);text-align:center;margin-top:6px;line-height:1.4;}
+.g-lockin{font-size:10.5px;text-align:center;margin-top:4px;letter-spacing:.4px;text-transform:uppercase;color:var(--cyan);}
+.g-lockin.soon{color:var(--orange);font-weight:800;}
+.g-lockin.closed{color:var(--mut);}
 .g-tznote{font-size:11.5px;color:var(--mut);text-align:center;margin:2px 0 12px;}
 /* Resultado cargado: el marcador del jugador se tinta segun los puntos del partido */
 .g-match.won .g-sc{opacity:1;border-color:var(--green);color:var(--green);background:rgba(38,224,138,.09);
