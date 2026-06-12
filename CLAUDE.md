@@ -107,8 +107,11 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - [x] Definir `INSCRIPCION.monto` (fijado en `$10.000` CLP; `montoNumber` lo deriva). Hecho.
 - [x] Pantalla Premios con reparto del pozo entre los primeros (60/30/10), editable en `PREMIOS`. Hecho.
 - [ ] Opcional: confirmación automática de la transferencia (hoy el organizador marca a mano quién pagó).
-- [ ] Opcional: traer resultados automáticamente con una función serverless en Vercel
-      (consultar un API de marcadores o la API de Anthropic con key del lado servidor).
+- [x] Resultados automáticos: `scripts/sync-resultados.mjs` baja los marcadores finales de
+      **OpenFootball** (datos abiertos, sin API key) y los carga en `results` de Supabase. Corre en
+      **GitHub Actions** (`.github/workflows/sync-resultados.yml`) cada 30 min. Solo escribe el
+      resultado si el partido aún no lo tiene (no pisa correcciones manuales). Requiere el secreto
+      `SUPABASE_SERVICE_ROLE_KEY` en GitHub. Ver `scripts/README.md`. Hecho.
 - [ ] Opcional: estadística de "mejor pronosticador por jornada".
 - [x] Reglas/ayuda explicadas dentro de la app (glosario de signo/diferencia + ejemplos). Hecho.
 

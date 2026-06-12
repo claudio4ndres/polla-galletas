@@ -1,0 +1,29 @@
+name: Sincronizar resultados (Mundial 2026)
+
+# Carga automáticamente los resultados finales de cada partido desde OpenFootball a Supabase.
+# Corre cada 30 min y también se puede lanzar a mano desde la pestaña "Actions".
+# Necesita el secreto SUPABASE_SERVICE_ROLE_KEY (Settings → Secrets and variables → Actions).
+# Sin ese secreto corre en modo "dry-run" (solo muestra qué haría, no escribe nada).
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # cada 30 minutos (GitHub puede demorarlo un poco en horas pico)
+  workflow_dispatch: {}        # botón "Run workflow" para ejecutarlo manualmente
+
+# Evita que se solapen dos ejecuciones.
+concurrency:
+  group: sync-resultados
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Cargar resultados finales en Supabase
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/sync-resultados.mjs
