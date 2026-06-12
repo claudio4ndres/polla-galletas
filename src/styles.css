@@ -14,7 +14,9 @@ body { background: #070e18; }
 .g-root:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
   background-image:linear-gradient(rgba(46,201,240,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(46,201,240,.05) 1px,transparent 1px);
   background-size:54px 54px;mask-image:radial-gradient(circle at 50% 30%,#000,transparent 85%);}
-.g-wrap{position:relative;z-index:1;max-width:780px;margin:0 auto;padding:0 14px 70px;}
+.g-wrap{position:relative;z-index:1;max-width:780px;margin:0 auto;padding:0 14px 92px;}
+.g-save-fab{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:30;width:auto;max-width:calc(100% - 28px);
+  box-shadow:0 10px 30px rgba(0,0,0,.55),0 6px 22px rgba(46,201,240,.35);}
 .g-disp{font-family:'Anton',sans-serif;letter-spacing:.5px;}
 
 .g-hero{text-align:center;padding:30px 0 14px;animation:fade .7s both;}

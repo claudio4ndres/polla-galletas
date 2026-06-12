@@ -237,6 +237,7 @@ function Polla({ session }) {
               👤 {displayName} · <b>{myPts}</b> pts
               <button className="g-edit" onClick={() => { setNameDraft(displayName); setEditingName(true); }}>Editar</button>
             </span>
+            {amPaid && <span className="g-prem">★ Premium</span>}
           </>
         )}
         <button className="g-logout" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
@@ -405,15 +406,9 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
   };
   return (
     <>
-      <div className="g-card">
-        {amPaid ? (
-          <div className="g-insc-ok">
-            <span className="g-prem">★ Premium</span>
-            <span className="g-help"><b>Inscripción al día.</b> Ya estás dentro de la polla oficial. ¡Suerte!</span>
-          </div>
-        ) : (
-          <>
-            <div className="g-disp" style={{ fontSize: 17, marginBottom: 6 }}>Inscripción a la polla</div>
+      {!amPaid && (
+        <div className="g-card">
+          <div className="g-disp" style={{ fontSize: 17, marginBottom: 6 }}>Inscripción a la polla</div>
             <p className="g-help" style={{ marginBottom: 12 }}>
               Transfiere la cuota {INSCRIPCION.monto ? <b className="c">{INSCRIPCION.monto} </b> : null}a esta cuenta y
               avísale al organizador. Cuando confirme tu pago, te aparece el distintivo{" "}
@@ -429,9 +424,8 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             <button className="g-btn fire" onClick={copiarDatos}>
               {copied ? "Datos copiados" : "Copiar datos de transferencia"}
             </button>
-          </>
-        )}
-      </div>
+        </div>
+      )}
       <div className="g-card">
         <Countdown target={cd ? cd.target : null} title={cd ? cd.title : ""} subText={cd ? cd.subText : null} match={cd ? cd.match : null} editable={cd ? cd.editable : false} onScroll={scrollToMatch} onElapsed={() => forceTick((t) => t + 1)} />
         {!allLocked && (
@@ -474,7 +468,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           })}
         </div>
       ))}
-      {!allLocked && <button className="g-btn cyan" style={{ position: "sticky", bottom: 14 }} onClick={savePicks}>💾 Guardar mis pronósticos</button>}
+      {!allLocked && <button className="g-btn cyan g-save-fab" onClick={savePicks}>💾 Guardar mis pronósticos</button>}
     </>
   );
 }
