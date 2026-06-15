@@ -1,0 +1,57 @@
+name: Performance Test
+
+# Load test con k6 contra la app en producción. Es READ-ONLY: solo hace GET a la página,
+# o sea pega al shell estático servido por el CDN de Vercel — NO toca Supabase, ni la sesión,
+# ni los secretos, ni escribe nada. No puede alterar pronósticos ni resultados.
+# Se lanza a mano desde la pestaña Actions → "Run workflow". No usa secretos.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  k6-load-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo apt-get update
+          sudo apt-get install -y gnupg software-properties-common
+          curl -s https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Create k6 test script
+        run: |
+          cat << 'EOF' > test.js
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+
+          export const options = {
+            stages: [
+              { duration: '30s', target: 10 },
+              { duration: '30s', target: 20 },
+              { duration: '30s', target: 50 },
+              { duration: '30s', target: 0 },
+            ],
+            thresholds: {
+              http_req_failed: ['rate<0.01'],
+              http_req_duration: ['p(95)<2000'],
+            },
+          };
+
+          export default function () {
+            const res = http.get('https://polla-galletas-eta.vercel.app/');
+            check(res, {
+              'status 200': (r) => r.status === 200,
+            });
+            sleep(1);
+          }
+          EOF
+
+      - name: Run k6 load test
+        run: k6 run test.js
