@@ -39,7 +39,12 @@ function GoogleIcon() {
 
 function Login() {
   const signIn = () =>
-    supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      // prompt:"select_account" obliga a Google a mostrar SIEMPRE el selector de cuenta,
+      // así nadie entra con la cuenta equivocada (y se cambia cerrando sesión y volviendo a entrar).
+      options: { redirectTo: window.location.origin, queryParams: { prompt: "select_account" } },
+    });
   return (
     <div className="g-root"><div className="g-wrap">
       <div className="g-hero">
