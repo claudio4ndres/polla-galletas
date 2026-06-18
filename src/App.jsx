@@ -80,6 +80,7 @@ function Polla({ session }) {
   const [picks, setPicks] = useState({});
   const [results, setResults] = useState({});
   const [board, setBoard] = useState([]);
+  const [allPreds, setAllPreds] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminMode, setAdminMode] = useState(false);
   const [paidSet, setPaidSet] = useState(() => new Set());
@@ -185,6 +186,14 @@ function Polla({ session }) {
 
   useEffect(() => { if (!loading && tab === "tabla") loadBoard(); }, [tab, loading, loadBoard]);
 
+  // Pronósticos de todos: alimentan el panel "ver los pronósticos de los demás" en cada
+  // partido ya cerrado (Pronósticos). Se recarga al entrar a la pestaña para verlos frescos.
+  const loadAllPreds = useCallback(async () => {
+    const { data } = await supabase.from("predictions").select("user_id,name,picks");
+    setAllPreds((data || []).map((p) => ({ id: p.user_id, name: prettyName(p.name), picks: p.picks || {} })));
+  }, []);
+  useEffect(() => { if (!loading && tab === "pred") loadAllPreds(); }, [tab, loading, loadAllPreds]);
+
   // Lista de jugadores para que el organizador marque quién pagó la cuota.
   const loadPlayersList = useCallback(async () => {
     const { data } = await supabase.from("predictions").select("user_id,name");
@@ -255,7 +264,7 @@ function Polla({ session }) {
         <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
       </div>
 
-      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} />}
+      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} allPreds={allPreds} myId={user.id} />}
       {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} paidSet={paidSet} />}
       {tab === "premios" && <PremiosView paidCount={paidSet.size} />}
       {tab === "res" && (
@@ -375,7 +384,30 @@ function fmtLeft(ms) {
   return `${m} min`;
 }
 
-export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid }) {
+// Clase de color de un puntaje (misma escala de calor que el resto: verde/naranja/dorado/gris).
+const ptsCls = (pts) => (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z");
+
+// Arma la lista de pronósticos de todos para un partido cerrado: nombre, marcador y, si ya hay
+// resultado, los puntos coloreados. Ordena por puntaje (con resultado) o por nombre (sin resultado aún).
+function buildOthers(allPreds, mid, res, myId) {
+  const rows = (allPreds || []).map((pl) => {
+    const pk = pl.picks?.[mid];
+    const has = Array.isArray(pk) && pk[0] !== "" && pk[0] != null && pk[1] !== "" && pk[1] != null;
+    const pts = res ? scorePick(pk, res) : null;
+    return {
+      id: pl.id,
+      name: pl.name,
+      pick: has ? `${pk[0]}-${pk[1]}` : "—",
+      pts,
+      cls: res ? (has ? ptsCls(pts) : "z") : has ? "c" : "z",
+      isMe: pl.id === myId,
+    };
+  });
+  rows.sort((a, b) => (b.pts ?? -1) - (a.pts ?? -1) || a.name.localeCompare(b.name));
+  return rows;
+}
+
+export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid, allPreds, myId }) {
   const now = Date.now();
   // Cierre por partido: editable hasta 30 min antes de su inicio; desde ahí, cerrado.
   const openMatches = MATCHES.filter((m) => !isMatchLocked(m, now)).sort((a, b) => a.kickoff - b.kickoff);
@@ -389,6 +421,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
   }
   const [, forceTick] = useState(0);               // re-render al cerrar cada partido
   const [copied, setCopied] = useState(false);
+  const [openPanel, setOpenPanel] = useState(null); // id del partido cuyo panel "pronósticos de los demás" está abierto (uno a la vez)
   useEffect(() => {                                // refresca el "cierra en…" de cada partido cada 30 s
     const id = setInterval(() => forceTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -451,8 +484,10 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
             const matchLocked = !!r || isMatchLocked(m, now);    // bloqueado si tiene resultado o faltan ≤30 min para empezar
             const timeLeft = m.kickoff - LOCK_BEFORE_MS - now;   // ms hasta que cierre la edición
+            const panelOpen = matchLocked && openPanel === m.id; // panel de pronósticos ajenos: solo en partidos cerrados
+            const others = panelOpen ? buildOthers(allPreds, m.id, r, myId) : null;
             return (
-              <div key={m.id} id={m.id}>
+              <div className="g-mrow" key={m.id} id={m.id}>
                 <div className={"g-match" + state}>
                   <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
                   <div className="g-sb">
@@ -460,14 +495,38 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                     <span className="g-colon">:</span>
                     <input className="g-sc" type="number" inputMode="numeric" disabled={matchLocked} value={p[1]} aria-label={`${m.home} vs ${m.away} - goles ${m.away}`} onChange={(e) => setPick(m.id, 1, e.target.value)} />
                   </div>
-                  <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
-                  <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
+                  <div className="g-right">
+                    <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
+                    <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
+                    {matchLocked && (
+                      <button
+                        className={"g-others-btn" + (panelOpen ? " on" : "")}
+                        onClick={() => setOpenPanel((cur) => (cur === m.id ? null : m.id))}
+                        aria-label="Ver los pronósticos de los demás"
+                        title="Pronósticos de los demás"
+                      ><i /><i /><i /></button>
+                    )}
+                  </div>
                 </div>
                 <div className="g-mt">J{m.jornada} · {m.day} jun · {m.time} · {m.venue}</div>
                 {!r && (timeLeft <= 0
                   ? <div className="g-lockin closed">Cerrado</div>
                   : <div className={"g-lockin" + (timeLeft < 3600000 ? " soon" : "")}>Cierra en {fmtLeft(timeLeft)}</div>)}
                 {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
+                {others && (
+                  <div className="g-others">
+                    <div className="g-others-t">{r ? "Pronósticos de los participantes" : "Pronósticos · partido en juego"}</div>
+                    {others.length === 0
+                      ? <div className="g-oempty">Nadie más pronosticó este partido.</div>
+                      : others.map((o) => (
+                          <div className={"g-orow" + (o.isMe ? " me" : "")} key={o.id}>
+                            <span className="g-on">{o.name}{o.isMe ? " (tú)" : ""}</span>
+                            <span className={"g-op " + o.cls}>{o.pick}</span>
+                            {r && <span className={"g-opt " + o.cls}>+{o.pts}</span>}
+                          </div>
+                        ))}
+                  </div>
+                )}
               </div>
             );
           })}
