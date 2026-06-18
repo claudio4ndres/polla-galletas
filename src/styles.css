@@ -116,6 +116,8 @@ body { background: #070e18; }
 .g-others-btn:hover i{background:var(--txt);}
 .g-others-btn.on{border-color:var(--cyan);background:rgba(46,201,240,.12);}
 .g-others-btn.on i{background:var(--cyan);}
+/* Fila mobile para el +pts y el botón (debajo de los equipos). En desktop no se usa: van inline. */
+.g-rmeta{display:none;}
 .g-others{margin-top:8px;background:var(--ink);border:1px solid var(--line);border-radius:12px;padding:4px 10px 8px;}
 .g-others-t{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);margin:8px 0 4px;text-align:center;}
 .g-oempty{font-size:12px;color:var(--mut);text-align:center;padding:10px 4px;}
@@ -258,15 +260,21 @@ body { background: #070e18; }
   .g-tab{font-size:10.5px;letter-spacing:.2px;padding:11px 2px;}
   /* El nombre puede usar dos líneas (Costa de Marfil, Estados Unidos...) en vez de cortarse con "…" */
   .g-team{gap:6px;font-size:13px;}
-  .g-tn{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;}
-  .g-match{gap:6px;}
+  /* El nombre puede usar dos líneas (Costa de Marfil, Estados Unidos...) y queda recortado por su
+     caja en vez de desbordarse sobre el +pts y el botón en pantallas angostas. */
+  .g-tn{white-space:normal;overflow:hidden;line-height:1.15;}
+  .g-match{gap:5px;}
   .g-fl{font-size:18px;}
   /* Controles más compactos para dejarle ancho al nombre */
-  .g-sb{gap:5px;}
+  .g-sb{gap:4px;}
   .g-sc{width:38px;height:42px;font-size:18px;border-radius:9px;}
   .g-pts{width:22px;font-size:13px;}
-  .g-others-btn{width:26px;height:26px;border-radius:8px;gap:2.5px;}
-  .g-others-btn i{width:12px;}
+  /* En mobile el +pts y el botón salen de la fila de equipos (se ocultan aquí) y bajan a su propia
+     fila .g-rmeta, así el nombre del visitante usa toda su columna sin solaparse ni desalinear. */
+  .g-right .g-pts, .g-right .g-others-btn{display:none;}
+  .g-rmeta{display:flex;align-items:center;justify-content:flex-end;gap:9px;margin:0 0 3px;}
+  .g-others-btn{width:26px;height:26px;border-radius:8px;gap:3px;}
+  .g-others-btn i{width:13px;}
   .g-rscore{min-width:60px;font-size:18px;}
   /* Datos de transferencia: etiqueta arriba y valor abajo (más legible, sin apretar ni cortar feo) */
   .g-bk-row{flex-direction:column;align-items:flex-start;gap:2px;}

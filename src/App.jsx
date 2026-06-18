@@ -488,6 +488,17 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             const others = panelOpen ? buildOthers(allPreds, m.id, r, myId) : null;
             return (
               <div className="g-mrow" key={m.id} id={m.id}>
+                {matchLocked && (
+                  <div className="g-rmeta">
+                    {r && <span className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{"+" + pts}</span>}
+                    <button
+                      className={"g-others-btn" + (panelOpen ? " on" : "")}
+                      onClick={() => setOpenPanel((cur) => (cur === m.id ? null : m.id))}
+                      aria-label="Ver los pronósticos de los demás"
+                      title="Pronósticos de los demás"
+                    ><i /><i /><i /></button>
+                  </div>
+                )}
                 <div className={"g-match" + state}>
                   <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
                   <div className="g-sb">
