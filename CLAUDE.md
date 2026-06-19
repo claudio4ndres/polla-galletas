@@ -23,7 +23,8 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - `src/data.js` — `MATCHES` (72 partidos), `FLAGS`, `scorePick()`, `DEADLINE` + `isLocked()`, constantes de puntaje, `INSCRIPCION` (datos de transferencia bancaria + monto), `montoNumber` y `PREMIOS` (reparto del pozo).
 - `src/styles.css` — tema oscuro "eléctrico" de Galletas FC.
 - `src/supabaseClient.js` — cliente Supabase (lee variables de entorno).
-- `supabase/schema.sql` — tablas `predictions`, `results`, `admins`, `payments` + reglas RLS. Correr en Supabase.
+- `supabase/schema.sql` — tablas `predictions`, `results`, `admins`, `payments`, `results_log` (bitácora) +
+  reglas RLS + trigger de bitácora. Correr en Supabase.
 - `public/logo.jpg` — escudo oficial del equipo.
 - `.env` — `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (no se sube a git).
 
@@ -32,8 +33,14 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - `results(match_id text PK, home int, away int, updated_at)`.
 - `admins(email text PK)` — correos autorizados a cargar resultados.
 - `payments(user_id uuid PK, paid boolean, updated_at)` — marca quién pagó la cuota (distintivo Premium).
+- `results_log(id, match_id, home, away, action, editor_id, editor_name, editor_email, created_at)` —
+  **bitácora de auditoría** de cambios en `results`. La llena sola un **trigger** (`log_result_change` +
+  `trg_log_result_change` en `schema.sql`) en cada insert/update/delete de `results`; guarda el resultado
+  que quedó, quién lo hizo (nombre/correo, o "Sync automático" si fue el bot) y cuándo.
 - RLS: todos los logueados leen `predictions`, `results` y `payments`; cada uno escribe solo su
   predicción; solo `admins` escriben `results` y `payments` (nadie se auto-activa el Premium).
+  `results_log` solo la **leen** los `admins` y **nadie la escribe por la API** (sin política de
+  insert/update/delete): la llena únicamente el trigger (SECURITY DEFINER), así no se falsifica.
 
 ## Reglas de la polla (decisiones tomadas)
 - **Puntaje estándar de 3 niveles** (`scorePick` en `data.js`):

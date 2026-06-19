@@ -68,8 +68,14 @@ body { background: #070e18; }
 .g-match:last-child{border-bottom:0;}
 /* Lado derecho (columna 3): equipo visitante pegado al marcador + el +pts y el botón al extremo. */
 .g-right{display:flex;align-items:center;gap:8px;min-width:0;}
-.g-team{flex:1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;min-width:0;}
-.g-team.r{justify-content:flex-end;text-align:right;}
+.g-team{flex:1;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;}
+.g-team.r{align-items:flex-end;}
+.g-team:not(.r){align-items:flex-start;}
+/* fila bandera+nombre (lo que antes era .g-team) */
+.g-team-main{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;min-width:0;max-width:100%;}
+.g-team.r .g-team-main{justify-content:flex-end;text-align:right;}
+/* etiqueta LOCAL / VISITA debajo del nombre */
+.g-role{font-size:8px;letter-spacing:1.3px;text-transform:uppercase;color:var(--mut);font-weight:700;line-height:1;opacity:.75;}
 .g-fl{font-size:21px;flex:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
 .g-tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .g-sb{display:flex;align-items:center;gap:6px;flex:none;}
@@ -259,7 +265,9 @@ body { background: #070e18; }
   .g-tabs{gap:4px;padding:5px;}
   .g-tab{font-size:10.5px;letter-spacing:.2px;padding:11px 2px;}
   /* El nombre puede usar dos líneas (Costa de Marfil, Estados Unidos...) en vez de cortarse con "…" */
-  .g-team{gap:6px;font-size:13px;}
+  .g-team{gap:1px;}
+  .g-team-main{gap:6px;font-size:13px;}
+  .g-role{font-size:7.5px;letter-spacing:1px;}
   /* El nombre puede usar dos líneas (Costa de Marfil, Estados Unidos...) y queda recortado por su
      caja en vez de desbordarse sobre el +pts y el botón en pantallas angostas. */
   .g-tn{white-space:normal;overflow:hidden;line-height:1.15;}

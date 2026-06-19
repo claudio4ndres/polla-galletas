@@ -500,14 +500,14 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                   </div>
                 )}
                 <div className={"g-match" + state}>
-                  <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
+                  <div className="g-team r"><div className="g-team-main"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div><span className="g-role">Local</span></div>
                   <div className="g-sb">
                     <input className="g-sc" type="number" inputMode="numeric" disabled={matchLocked} value={p[0]} aria-label={`${m.home} vs ${m.away} - goles ${m.home}`} onChange={(e) => setPick(m.id, 0, e.target.value)} />
                     <span className="g-colon">:</span>
                     <input className="g-sc" type="number" inputMode="numeric" disabled={matchLocked} value={p[1]} aria-label={`${m.home} vs ${m.away} - goles ${m.away}`} onChange={(e) => setPick(m.id, 1, e.target.value)} />
                   </div>
                   <div className="g-right">
-                    <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
+                    <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div><span className="g-role">Visita</span></div>
                     <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
                     {matchLocked && (
                       <button
@@ -689,7 +689,7 @@ export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResu
             const editable = isAdmin && adminMode;
             return (
               <div className="g-match" key={m.id}>
-                <div className="g-team r"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>
+                <div className="g-team r"><div className="g-team-main"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div><span className="g-role">Local</span></div>
                 <div className="g-sb">
                   {editable ? (
                     <>
@@ -701,7 +701,7 @@ export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResu
                     <span className={"g-rscore" + (has ? "" : " none")}>{has ? `${r[0]} : ${r[1]}` : "—"}</span>
                   )}
                 </div>
-                <div className="g-team"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>
+                <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div><span className="g-role">Visita</span></div>
               </div>
             );
           })}
