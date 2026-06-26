@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 import {
   MATCHES, GROUPS, flag, scorePick, isMatchLocked, LOCK_BEFORE_MS, INSCRIPCION, PREMIOS, montoNumber,
 } from "./data";
+import { computeStats, predictMatch } from "./predict";
 
 /* ============================ AUTH WRAPPER ============================ */
 export default function App() {
@@ -407,6 +408,46 @@ function buildOthers(allPreds, mid, res, myId) {
   return rows;
 }
 
+// Panel de "probabilidad por goles" de un partido próximo (modelo Poisson en predict.js).
+function ProbPanel({ pred, home, away, onUse }) {
+  const pct = (x) => Math.round(x * 100);
+  const t0 = pred.top[0];
+  const maxP = t0.p;
+  const suger = pred.top.slice(0, 2).map((t) => `${t.h}-${t.a}`).join(" o ");
+  return (
+    <div className="g-prob">
+      <div className="g-prob-t">Probabilidad por goles · estimación</div>
+      <div className="g-prob-bar">
+        <span className="h" style={{ width: pct(pred.pHome) + "%" }} />
+        <span className="d" style={{ width: pct(pred.pDraw) + "%" }} />
+        <span className="a" style={{ width: pct(pred.pAway) + "%" }} />
+      </div>
+      <div className="g-prob-1x2">
+        <span className="h">{home} {pct(pred.pHome)}%</span>
+        <span className="d">Empate {pct(pred.pDraw)}%</span>
+        <span className="a">{away} {pct(pred.pAway)}%</span>
+      </div>
+      <div className="g-prob-xg">
+        <div><span>Goles esp. · {home}</span><b>{pred.lamH.toFixed(1)}</b></div>
+        <div><span>Goles esp. · {away}</span><b>{pred.lamA.toFixed(1)}</b></div>
+      </div>
+      <div className="g-prob-st">Marcadores más probables</div>
+      {pred.top.map((t, i) => (
+        <div className={"g-prob-row" + (i === 0 ? " top" : "")} key={i}>
+          <span className="sc">{t.h}-{t.a}</span>
+          <span className="barwrap"><span className="bar" style={{ width: Math.round(t.p / maxP * 100) + "%" }} /></span>
+          <span className="pp">{pct(t.p)}%</span>
+        </div>
+      ))}
+      <div className="g-prob-sug">
+        <span>Más seguro: <b>{suger}</b></span>
+        <button className="g-prob-use" onClick={onUse}>Usar {t0.h}-{t0.a}</button>
+      </div>
+      <div className="g-prob-extra">+2.5 goles <b>{pct(pred.pOver)}%</b> · ambos marcan <b>{pct(pred.pBtts)}%</b> · {pred.pj} {pred.pj === 1 ? "partido" : "partidos"} jugado{pred.pj === 1 ? "" : "s"}</div>
+    </div>
+  );
+}
+
 export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid, allPreds, myId }) {
   const now = Date.now();
   // Cierre por partido: editable hasta 30 min antes de su inicio; desde ahí, cerrado.
@@ -422,6 +463,9 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
   const [, forceTick] = useState(0);               // re-render al cerrar cada partido
   const [copied, setCopied] = useState(false);
   const [openPanel, setOpenPanel] = useState(null); // id del partido cuyo panel "pronósticos de los demás" está abierto (uno a la vez)
+  const [openProb, setOpenProb] = useState(null);   // id del partido cuyo panel "probabilidad por goles" está abierto
+  // Stats de los equipos (goles a favor/en contra) a partir de los resultados; se recalcula solo si cambian.
+  const probStats = useMemo(() => computeStats(results), [results]);
   useEffect(() => {                                // refresca el "cierra en…" de cada partido cada 30 s
     const id = setInterval(() => forceTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -486,6 +530,11 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             const timeLeft = m.kickoff - LOCK_BEFORE_MS - now;   // ms hasta que cierre la edición
             const panelOpen = matchLocked && openPanel === m.id; // panel de pronósticos ajenos: solo en partidos cerrados
             const others = panelOpen ? buildOthers(allPreds, m.id, r, myId) : null;
+            // Probabilidad por goles: solo en partidos abiertos donde ambos equipos ya jugaron.
+            const sH = probStats.stats[m.home], sA = probStats.stats[m.away];
+            const canPredict = !matchLocked && !!sH && !!sA && sH.pj >= 1 && sA.pj >= 1;
+            const probOpen = canPredict && openProb === m.id;
+            const pred = probOpen ? predictMatch(m.home, m.away, probStats) : null;
             return (
               <div className="g-mrow" key={m.id} id={m.id}>
                 {matchLocked && (
@@ -493,7 +542,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                     {r && <span className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{"+" + pts}</span>}
                     <button
                       className={"g-others-btn" + (panelOpen ? " on" : "")}
-                      onClick={() => setOpenPanel((cur) => (cur === m.id ? null : m.id))}
+                      onClick={() => { setOpenPanel((cur) => (cur === m.id ? null : m.id)); setOpenProb(null); }}
                       aria-label="Ver los pronósticos de los demás"
                       title="Pronósticos de los demás"
                     ><i /><i /><i /></button>
@@ -512,7 +561,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                     {matchLocked && (
                       <button
                         className={"g-others-btn" + (panelOpen ? " on" : "")}
-                        onClick={() => setOpenPanel((cur) => (cur === m.id ? null : m.id))}
+                        onClick={() => { setOpenPanel((cur) => (cur === m.id ? null : m.id)); setOpenProb(null); }}
                         aria-label="Ver los pronósticos de los demás"
                         title="Pronósticos de los demás"
                       ><i /><i /><i /></button>
@@ -523,6 +572,12 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                 {!r && (timeLeft <= 0
                   ? <div className="g-lockin closed">Cerrado</div>
                   : <div className={"g-lockin" + (timeLeft < 3600000 ? " soon" : "")}>Cierra en {fmtLeft(timeLeft)}</div>)}
+                {canPredict && (
+                  <button
+                    className={"g-prob-btn" + (probOpen ? " on" : "")}
+                    onClick={() => { setOpenProb((cur) => (cur === m.id ? null : m.id)); setOpenPanel(null); }}
+                  >{probOpen ? "Ocultar probabilidad" : "Probabilidad de goles"}</button>
+                )}
                 {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
                 {others && (
                   <div className="g-others">
@@ -537,6 +592,10 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                           </div>
                         ))}
                   </div>
+                )}
+                {probOpen && pred && (
+                  <ProbPanel pred={pred} home={m.home} away={m.away}
+                    onUse={() => { setPick(m.id, 0, pred.top[0].h); setPick(m.id, 1, pred.top[0].a); }} />
                 )}
               </div>
             );
