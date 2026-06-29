@@ -82,6 +82,19 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
   marcadores al azar (goles ponderados a números bajos) sin guardar; el jugador revisa, ajusta y
   toca Guardar. Si ya había marcadores cargados pide confirmación antes de reemplazar. Estilo
   `g-btn ghost`, texto sin íconos. Función `fillRandom()` en `App.jsx`.
+- **Tabla por fase + reglas a la vista**: la Tabla (`BoardView`) tiene un selector **Fase de grupos /
+  16avos** — cada fase es un ranking aparte (puntos, exactos y aciertos de esa fase). En 16avos solo
+  figura quien la pronosticó (tiene algún pick `k*`); `loadBoard` suma los puntos por `m.phase`.
+  Botón "¿Cómo se suman los puntos?" que despliega los 4 niveles (3/2/1/0) con ejemplos y notas.
+  CSS `.g-subtabs/.g-subtab`, `.g-ruletoggle/.g-rules2`.
+- **Eliminación sin Local/Visita**: en partidos `phase:"ko"` no se muestran las etiquetas Local/Visita
+  (cancha neutral; el orden de equipos es solo el del bracket). En grupos sí se muestran. El puntaje
+  sigue siendo 3/2/1/0 por marcador; en eliminación cuenta el marcador de los 90/120 min (los penales
+  solo definen quién avanza, no el marcador puntuado).
+- **Grupos colapsables (dropdown)** en Pronósticos: cada sección (grupo / ronda) es un encabezado
+  plegable (`.g-ghead` + chevron CSS, sin emoji). Las rondas terminadas (sin partidos por pronosticar)
+  arrancan **cerradas** y la activa **abierta**, para no estorbar la navegación cuando el torneo avanza.
+  Estado `secOpen` en `PredView`; el default lo decide `hasOpen` (¿queda algún partido editable?).
 
 ## Datos del torneo
 - Fixture: fase de grupos del Mundial 2026 (sorteo 5-dic-2025), 12 grupos, 72 partidos, todos en junio.
