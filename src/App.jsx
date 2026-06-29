@@ -80,6 +80,7 @@ function Polla({ session }) {
   const [tab, setTab] = useState("pred");
   const [picks, setPicks] = useState({});
   const [results, setResults] = useState({});
+  const [koInfo, setKoInfo] = useState({});   // por partido KO: { et:bool, ph:int|null, pa:int|null } (alargue/penales)
   const [board, setBoard] = useState([]);
   const [allPreds, setAllPreds] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -102,7 +103,8 @@ function Polla({ session }) {
       if (mine?.picks) setPicks(mine.picks);
       // Respeta el nombre guardado solo si es un nombre de verdad (no un correo); así no pisa lo que cada uno editó.
       if (mine?.name && !mine.name.includes("@")) setDisplayName(mine.name);
-      setResults(resMap);
+      setResults(resMap.map);
+      setKoInfo(resMap.ko);
       setIsAdmin(admin);
       setPaidSet(paid);
       setLoading(false);
@@ -166,19 +168,30 @@ function Polla({ session }) {
     }
   };
 
+  // Alargue / penales de un partido de eliminación (requiere marcador ya cargado). patch: {et}|{ph}|{pa}.
+  const setKoField = async (mid, patch) => {
+    const cur = koInfo[mid] || { et: false, ph: null, pa: null };
+    const next = { ...cur, ...patch };
+    setKoInfo({ ...koInfo, [mid]: next });
+    await supabase.from("results")
+      .update({ went_to_et: next.et, pen_home: next.ph, pen_away: next.pa, updated_at: new Date().toISOString() })
+      .eq("match_id", mid);
+  };
+
   const loadBoard = useCallback(async () => {
     const [{ data: preds }, resMap] = await Promise.all([
       supabase.from("predictions").select("user_id,name,picks"),
       loadResults(),
     ]);
-    setResults(resMap);
+    setResults(resMap.map);
+    setKoInfo(resMap.ko);
     // Puntaje separado por fase: la fase de grupos y los 16avos son rankings distintos
     // (en eliminación pueden jugar otros). La Tabla deja elegir cuál ver. BoardView ordena.
     const rows = (preds || []).map((p) => {
       const picks = p.picks || {};
       const g = { total: 0, exact: 0, hits: 0 }, k = { total: 0, exact: 0, hits: 0 };
       for (const m of MATCHES) {
-        const r = resMap[m.id]; if (!r) continue;
+        const r = resMap.map[m.id]; if (!r) continue;
         const pts = scorePick(picks[m.id], r);
         const b = m.phase === "ko" ? k : g;
         b.total += pts; if (pts === 3) b.exact++; if (pts > 0) b.hits++;
@@ -188,6 +201,16 @@ function Polla({ session }) {
     });
     setBoard(rows);
   }, []);
+
+  // Tiempo real: ante cualquier cambio en `results` (organizador o sync), todos recargan en vivo
+  // resultados + alargue/penales + tabla, sin refrescar. Requiere Realtime activado en la tabla.
+  useEffect(() => {
+    const ch = supabase
+      .channel("results-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "results" }, () => { loadBoard(); })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [loadBoard]);
 
   useEffect(() => { if (!loading && tab === "tabla") loadBoard(); }, [tab, loading, loadBoard]);
 
@@ -269,12 +292,12 @@ function Polla({ session }) {
         <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
       </div>
 
-      {tab === "pred" && <PredView picks={picks} results={results} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} allPreds={allPreds} myId={user.id} />}
+      {tab === "pred" && <PredView picks={picks} results={results} koInfo={koInfo} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} allPreds={allPreds} myId={user.id} />}
       {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} paidSet={paidSet} />}
       {tab === "premios" && <PremiosView paidCount={paidSet.size} />}
       {tab === "res" && (
-        <ResultsView results={results} isAdmin={isAdmin} adminMode={adminMode}
-          setAdminMode={setAdminMode} setResult={setResult}
+        <ResultsView results={results} koInfo={koInfo} isAdmin={isAdmin} adminMode={adminMode}
+          setAdminMode={setAdminMode} setResult={setResult} setKoField={setKoField}
           players={players} paidSet={paidSet} togglePaid={togglePaid} />
       )}
 
@@ -286,10 +309,13 @@ function Polla({ session }) {
 
 /* ============================ HELPERS SUPABASE ============================ */
 async function loadResults() {
-  const { data } = await supabase.from("results").select("match_id,home,away");
-  const map = {};
-  (data || []).forEach((r) => { map[r.match_id] = [r.home, r.away]; });
-  return map;
+  const { data } = await supabase.from("results").select("match_id,home,away,went_to_et,pen_home,pen_away");
+  const map = {}, ko = {};
+  (data || []).forEach((r) => {
+    map[r.match_id] = [r.home, r.away];
+    ko[r.match_id] = { et: !!r.went_to_et, ph: r.pen_home, pa: r.pen_away };
+  });
+  return { map, ko };
 }
 async function checkAdmin(email) {
   if (!email) return false;
@@ -412,6 +438,19 @@ function buildOthers(allPreds, mid, res, myId) {
   return rows;
 }
 
+// Quién avanza en un partido de eliminación: ganador del marcador, o ganador de los penales si fue empate.
+function koAdvancer(m, r, ko) {
+  if (!r || r[0] === "" || r[1] === "") return null;
+  const h = +r[0], a = +r[1];
+  if (h > a) return m.home;
+  if (a > h) return m.away;
+  if (ko && ko.ph != null && ko.pa != null && ko.ph !== "" && ko.pa !== "") {
+    if (+ko.ph > +ko.pa) return m.home;
+    if (+ko.pa > +ko.ph) return m.away;
+  }
+  return null; // empate sin penales cargados → indefinido todavía
+}
+
 // Panel de "probabilidad por goles" de un partido próximo (modelo Poisson en predict.js).
 function ProbPanel({ pred, home, away, onUse }) {
   const pct = (x) => Math.round(x * 100);
@@ -452,7 +491,7 @@ function ProbPanel({ pred, home, away, onUse }) {
   );
 }
 
-export function PredView({ picks, results, setPick, savePicks, fillRandom, amPaid, allPreds, myId }) {
+export function PredView({ picks, results, koInfo, setPick, savePicks, fillRandom, amPaid, allPreds, myId }) {
   const now = Date.now();
   // Cierre por partido: editable hasta 30 min antes de su inicio; desde ahí, cerrado.
   const openMatches = MATCHES.filter((m) => !isMatchLocked(m, now)).sort((a, b) => a.kickoff - b.kickoff);
@@ -543,6 +582,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
           {expanded && sec.matches.map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
+            const ko = koInfo[m.id]; const koPen = ko && ko.ph != null && ko.pa != null; const koAdv = m.phase === "ko" && r ? koAdvancer(m, r, ko) : null;
             const matchLocked = !!r || isMatchLocked(m, now);    // bloqueado si tiene resultado o faltan ≤30 min para empezar
             const timeLeft = m.kickoff - LOCK_BEFORE_MS - now;   // ms hasta que cierre la edición
             // Listado de apuestas de los demás: en eliminación se muestra SIEMPRE (decisión del usuario);
@@ -598,7 +638,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                     onClick={() => { setOpenProb((cur) => (cur === m.id ? null : m.id)); setOpenPanel(null); }}
                   >{probOpen ? "Ocultar probabilidad" : "Probabilidad de goles"}</button>
                 )}
-                {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
+                {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{koPen ? ` · Penales ${ko.ph}–${ko.pa}` : ko?.et ? " · Tras alargue" : ""}{koAdv ? ` · ${koAdv} avanza` : ""}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
                 {others && (
                   <div className="g-others">
                     <div className="g-others-t">{!r && matchLocked ? "Pronósticos · partido en juego" : "Pronósticos de los participantes"}</div>
@@ -737,7 +777,7 @@ function ResultInput({ value, onCommit }) {
   );
 }
 
-export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, players, paidSet, togglePaid }) {
+export function ResultsView({ results, koInfo, isAdmin, adminMode, setAdminMode, setResult, setKoField, players, paidSet, togglePaid }) {
   const count = Object.keys(results).length;
   // Secciones: los 12 grupos y después las rondas de eliminación.
   const sections = [
@@ -797,8 +837,14 @@ export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResu
             const r = results[m.id] || ["", ""];
             const has = !!results[m.id];
             const editable = isAdmin && adminMode;
+            const ko = koInfo[m.id];
+            const isDraw = has && r[0] !== "" && r[1] !== "" && +r[0] === +r[1];
+            const adv = koAdvancer(m, r, ko);
+            const hasPen = ko && ko.ph != null && ko.pa != null;
+            const showKo = m.phase === "ko" && has && (editable || ko?.et || hasPen);
             return (
-              <div className="g-match" key={m.id}>
+              <React.Fragment key={m.id}>
+              <div className={"g-match" + (showKo ? " koopen" : "")}>
                 <div className="g-team r"><div className="g-team-main"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>{m.phase !== "ko" && <span className="g-role">Local</span>}</div>
                 <div className="g-sb">
                   {editable ? (
@@ -813,6 +859,29 @@ export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResu
                 </div>
                 <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>{m.phase !== "ko" && <span className="g-role">Visita</span>}</div>
               </div>
+              {showKo && (
+                <div className="g-koedit">
+                  {editable ? (
+                    <>
+                      <button type="button" className={"g-kotoggle" + (ko?.et ? " on" : "")} onClick={() => setKoField(m.id, { et: !ko?.et })}>Alargue</button>
+                      {isDraw && (
+                        <span className="g-kopen">
+                          <span className="g-kopen-l">Penales</span>
+                          <ResultInput value={ko?.ph ?? ""} onCommit={(v) => setKoField(m.id, { ph: v === "" ? null : +v })} />
+                          <span className="g-colon">:</span>
+                          <ResultInput value={ko?.pa ?? ""} onCommit={(v) => setKoField(m.id, { pa: v === "" ? null : +v })} />
+                        </span>
+                      )}
+                      {adv && <span className="g-koadv">{adv} avanza</span>}
+                    </>
+                  ) : (
+                    <span className="g-kosum">
+                      {hasPen ? `Penales ${ko.ph}–${ko.pa}` : "Tras alargue"}{adv ? ` · ${adv} avanza` : ""}
+                    </span>
+                  )}
+                </div>
+              )}
+              </React.Fragment>
             );
           })}
         </div>

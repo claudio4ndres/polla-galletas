@@ -95,6 +95,15 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
   plegable (`.g-ghead` + chevron CSS, sin emoji). Las rondas terminadas (sin partidos por pronosticar)
   arrancan **cerradas** y la activa **abierta**, para no estorbar la navegación cuando el torneo avanza.
   Estado `secOpen` en `PredView`; el default lo decide `hasOpen` (¿queda algún partido editable?).
+- **Eliminación: alargue, penales y tiempo real**: `results` ganó columnas `went_to_et`, `pen_home`,
+  `pen_away` (en `schema.sql`, con ALTER idempotente). En Resultados el organizador marca **Alargue** y,
+  si el marcador quedó empatado, carga los **penales**; la app calcula **quién avanza** (`koAdvancer`).
+  En Pronósticos la nota muestra "Final 1–1 · Penales 4–3 · X avanza". El **puntaje no cambia** (3/2/1/0
+  sobre el marcador de los 90/120; los penales solo definen quién pasa). **Tiempo real**: suscripción
+  Supabase Realtime a `results` (canal `results-live` en `App.jsx`) — al cambiar un resultado, todos
+  recargan resultados/alargue/penales/tabla en vivo sin refrescar. Estado `koInfo`, setter `setKoField`,
+  carga vía `loadResults()` que ahora devuelve `{ map, ko }`. Realtime hay que activarlo en la tabla
+  (ya hecho: `results` está en la publicación `supabase_realtime`).
 
 ## Datos del torneo
 - Fixture: fase de grupos del Mundial 2026 (sorteo 5-dic-2025), 12 grupos, 72 partidos, todos en junio.

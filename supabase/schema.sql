@@ -15,11 +15,24 @@ create table if not exists public.predictions (
 
 -- Resultados reales de cada partido (los carga el organizador).
 create table if not exists public.results (
-  match_id   text primary key,                     -- "m0" ... "m71"
-  home       int  not null,
+  match_id   text primary key,                     -- "m0" ... "m71" (grupos), "k0" ... (eliminación)
+  home       int  not null,                         -- marcador de los 90/120 min (lo que puntúa)
   away       int  not null,
+  went_to_et boolean default false,                 -- eliminación: fue a alargue (informativo)
+  pen_home   int,                                   -- eliminación: penales convertidos local
+  pen_away   int,                                   -- eliminación: penales convertidos visita
   updated_at timestamptz not null default now()
 );
+-- Para bases ya creadas (idempotente): agrega las columnas de eliminación si faltan.
+alter table public.results add column if not exists went_to_et boolean default false;
+alter table public.results add column if not exists pen_home int;
+alter table public.results add column if not exists pen_away int;
+-- Tiempo real: los cambios en `results` (organizador o sync) llegan en vivo a todos por Supabase Realtime.
+do $$ begin
+  if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='results') then
+    alter publication supabase_realtime add table public.results;
+  end if;
+end $$;
 
 -- Organizadores autorizados a cargar resultados (por correo de Google).
 create table if not exists public.admins (
