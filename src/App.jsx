@@ -545,7 +545,10 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
             const matchLocked = !!r || isMatchLocked(m, now);    // bloqueado si tiene resultado o faltan ≤30 min para empezar
             const timeLeft = m.kickoff - LOCK_BEFORE_MS - now;   // ms hasta que cierre la edición
-            const panelOpen = matchLocked && openPanel === m.id; // panel de pronósticos ajenos: solo en partidos cerrados
+            // Listado de apuestas de los demás: en eliminación se muestra SIEMPRE (decisión del usuario);
+            // en grupos, solo cuando el partido cierra (anti-copia).
+            const showOthers = matchLocked || m.phase === "ko";
+            const panelOpen = showOthers && openPanel === m.id;
             const others = panelOpen ? buildOthers(allPreds, m.id, r, myId) : null;
             // Probabilidad por goles: solo en partidos abiertos donde ambos equipos ya jugaron.
             const sH = probStats.stats[m.home], sA = probStats.stats[m.away];
@@ -554,7 +557,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             const pred = probOpen ? predictMatch(m.home, m.away, probStats) : null;
             return (
               <div className="g-mrow" key={m.id} id={m.id}>
-                {matchLocked && (
+                {showOthers && (
                   <div className="g-rmeta">
                     {r && <span className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{"+" + pts}</span>}
                     <button
@@ -575,7 +578,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                   <div className="g-right">
                     <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>{m.phase !== "ko" && <span className="g-role">Visita</span>}</div>
                     <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
-                    {matchLocked && (
+                    {showOthers && (
                       <button
                         className={"g-others-btn" + (panelOpen ? " on" : "")}
                         onClick={() => { setOpenPanel((cur) => (cur === m.id ? null : m.id)); setOpenProb(null); }}
@@ -598,7 +601,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                 {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
                 {others && (
                   <div className="g-others">
-                    <div className="g-others-t">{r ? "Pronósticos de los participantes" : "Pronósticos · partido en juego"}</div>
+                    <div className="g-others-t">{!r && matchLocked ? "Pronósticos · partido en juego" : "Pronósticos de los participantes"}</div>
                     {others.length === 0
                       ? <div className="g-oempty">Nadie más pronosticó este partido.</div>
                       : others.map((o) => (
