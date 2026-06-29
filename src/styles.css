@@ -60,6 +60,15 @@ body { background: #070e18; }
 .g-gtag{font-family:'Anton';font-size:15px;letter-spacing:2px;
   background:linear-gradient(90deg,var(--cyan),var(--cyan2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 .g-gbar{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent);}
+/* Encabezado de sección plegable (dropdown): grupos terminados arrancan colapsados */
+.g-ghead{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:0;padding:0;margin-bottom:6px;cursor:pointer;font:inherit;}
+.g-ghead .g-gtag{transition:filter .15s;}
+.g-ghead:hover .g-gtag{filter:brightness(1.3);}
+.g-gmeta{font-family:'Archivo';font-weight:700;font-size:11px;color:var(--mut);letter-spacing:.3px;flex:none;}
+.g-gchev{width:8px;height:8px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);
+  transform:rotate(45deg);transition:transform .2s,border-color .15s;flex:none;margin:-3px 1px 0 2px;}
+.g-ghead.open .g-gchev{transform:rotate(-135deg);margin-top:2px;}
+.g-ghead:hover .g-gchev{border-color:var(--cyan);}
 
 /* Grilla simétrica: equipo-local | marcador | equipo-local. El marcador (columna central)
    queda en el centro real de la tarjeta, alineado con el estadio y el "FINAL" centrados de abajo,
@@ -187,6 +196,17 @@ body { background: #070e18; }
   font-size:12px;letter-spacing:.3px;border-radius:11px;padding:10px 8px;cursor:pointer;transition:.15s;}
 .g-subtab:hover{color:var(--txt);}
 .g-subtab.on{color:var(--cyan);border-color:var(--cyan);background:rgba(46,201,240,.1);}
+/* Desplegable "¿Cómo se suman los puntos?" */
+.g-ruletoggle{display:block;width:100%;background:var(--ink2);border:1px solid var(--line);color:var(--cyan);
+  font-family:'Archivo';font-weight:700;font-size:12.5px;letter-spacing:.3px;border-radius:11px;padding:11px;cursor:pointer;margin-bottom:12px;transition:.15s;}
+.g-ruletoggle:hover{border-color:var(--cyan);}
+.g-rules2{background:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:14px;}
+.g-rules2-row{display:flex;align-items:flex-start;gap:11px;margin-bottom:9px;font-size:13px;color:var(--txt);line-height:1.4;}
+.g-rp{font-family:'Anton';font-size:17px;width:30px;flex:none;text-align:center;}
+.g-rp.won{color:var(--green);} .g-rp.f{color:var(--orange);} .g-rp.o{color:var(--gold);} .g-rp.z{color:var(--mut);}
+.g-rules2-row b{color:var(--cyan2);font-weight:700;}
+.g-rules2-note{font-size:11.5px;color:var(--mut);line-height:1.65;border-top:1px solid var(--line);padding-top:10px;margin-top:6px;}
+.g-rules2-note b{color:var(--txt);}
 .g-row{display:flex;align-items:center;gap:13px;padding:14px 13px;border-radius:14px;margin-bottom:9px;background:var(--ink2);border:1px solid var(--line);}
 .g-row.me{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset,0 0 22px rgba(46,201,240,.12);}
 .g-row.p1{background:linear-gradient(100deg,rgba(227,169,72,.16),var(--ink2));border-color:rgba(227,169,72,.5);}

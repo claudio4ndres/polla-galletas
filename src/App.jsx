@@ -468,6 +468,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
   const [copied, setCopied] = useState(false);
   const [openPanel, setOpenPanel] = useState(null); // id del partido cuyo panel "pronósticos de los demás" está abierto (uno a la vez)
   const [openProb, setOpenProb] = useState(null);   // id del partido cuyo panel "probabilidad por goles" está abierto
+  const [secOpen, setSecOpen] = useState({});       // colapsar/expandir cada sección; las terminadas arrancan cerradas (dropdown)
   // Stats de los equipos (goles a favor/en contra) a partir de los resultados; se recalcula solo si cambian.
   const probStats = useMemo(() => computeStats(results), [results]);
   // Secciones de la pantalla: los 12 grupos y, después, las rondas de eliminación.
@@ -529,10 +530,17 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
         )}
       </div>
       <div className="g-tznote">Fecha, hora y estadio de cada partido — en horario de Chile.</div>
-      {sections.map((sec) => (
+      {sections.map((sec) => {
+        const hasOpen = sec.matches.some((mm) => !results[mm.id] && !isMatchLocked(mm, now)); // ¿queda algo por pronosticar?
+        const expanded = sec.key in secOpen ? secOpen[sec.key] : hasOpen;   // terminadas colapsadas; la ronda activa, abierta
+        const done = sec.matches.filter((mm) => results[mm.id]).length;
+        const meta = done === sec.matches.length ? `${done} jugados` : done > 0 ? `${done}/${sec.matches.length}` : `${sec.matches.length} partidos`;
+        return (
         <div className="g-card" key={sec.key}>
-          <div className="g-gline"><span className="g-gtag">{sec.title}</span><span className="g-gbar" /></div>
-          {sec.matches.map((m) => {
+          <button type="button" className={"g-ghead" + (expanded ? " open" : "")} aria-expanded={expanded} onClick={() => setSecOpen((s) => ({ ...s, [sec.key]: !expanded }))}>
+            <span className="g-gtag">{sec.title}</span><span className="g-gbar" /><span className="g-gmeta">{meta}</span><span className="g-gchev" />
+          </button>
+          {expanded && sec.matches.map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
             const matchLocked = !!r || isMatchLocked(m, now);    // bloqueado si tiene resultado o faltan ≤30 min para empezar
@@ -558,14 +566,14 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                   </div>
                 )}
                 <div className={"g-match" + state}>
-                  <div className="g-team r"><div className="g-team-main"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div><span className="g-role">Local</span></div>
+                  <div className="g-team r"><div className="g-team-main"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>{m.phase !== "ko" && <span className="g-role">Local</span>}</div>
                   <div className="g-sb">
                     <input className="g-sc" type="number" inputMode="numeric" disabled={matchLocked} value={p[0]} aria-label={`${m.home} vs ${m.away} - goles ${m.home}`} onChange={(e) => setPick(m.id, 0, e.target.value)} />
                     <span className="g-colon">:</span>
                     <input className="g-sc" type="number" inputMode="numeric" disabled={matchLocked} value={p[1]} aria-label={`${m.home} vs ${m.away} - goles ${m.away}`} onChange={(e) => setPick(m.id, 1, e.target.value)} />
                   </div>
                   <div className="g-right">
-                    <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div><span className="g-role">Visita</span></div>
+                    <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>{m.phase !== "ko" && <span className="g-role">Visita</span>}</div>
                     <div className={"g-pts " + (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z")}>{r ? "+" + pts : "·"}</div>
                     {matchLocked && (
                       <button
@@ -610,7 +618,8 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
             );
           })}
         </div>
-      ))}
+        );
+      })}
       {!allLocked && <button className="g-btn cyan g-save-fab" onClick={savePicks}>💾 Guardar mis pronósticos</button>}
     </>
   );
@@ -618,6 +627,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
 
 function BoardView({ board, myId, reload, paidSet }) {
   const [phase, setPhase] = useState("grupos");   // "grupos" | "16avos" — rankings separados por fase
+  const [showRules, setShowRules] = useState(false); // desplegable "cómo se suman los puntos"
   const isKo = phase === "16avos";
   // Puntaje de la fase elegida. En 16avos solo aparece quien lo haya pronosticado (es ronda nueva).
   let rows = board.map((r) => ({ ...r, s: isKo ? r.ko : r.grupos }));
@@ -629,6 +639,18 @@ function BoardView({ board, myId, reload, paidSet }) {
         <div className="g-lt">🏆 Tabla</div>
         <button className="g-btn ghost" style={{ width: "auto", padding: "11px 16px" }} onClick={reload}>↻ Refrescar</button>
       </div>
+      <button className="g-ruletoggle" onClick={() => setShowRules((s) => !s)}>
+        {showRules ? "Ocultar cómo se suman los puntos" : "¿Cómo se suman los puntos?"}
+      </button>
+      {showRules && (
+        <div className="g-rules2">
+          <div className="g-rules2-row"><span className="g-rp won">+3</span><span>Marcador <b>exacto</b> — clavás el resultado.</span></div>
+          <div className="g-rules2-row"><span className="g-rp f">+2</span><span>Acertás el <b>ganador y la diferencia</b> de goles (ej: pusiste 2-0 y fue 3-1).</span></div>
+          <div className="g-rules2-row"><span className="g-rp o">+1</span><span>Acertás solo <b>quién gana</b> (o que fue empate) — el signo.</span></div>
+          <div className="g-rules2-row"><span className="g-rp z">+0</span><span>Errás el ganador.</span></div>
+          <div className="g-rules2-note">En <b>fase de grupos</b>, el equipo de la izquierda es <b>local</b> y el de la derecha <b>visita</b>. En <b>eliminación</b> (16avos en adelante) se juega en cancha neutral: no hay local ni visita. Cada fase suma por separado, con su propio ranking; en eliminación cuenta el marcador de los 90/120 min y los <b>penales</b> solo definen quién avanza.</div>
+        </div>
+      )}
       <div className="g-subtabs">
         <button className={"g-subtab" + (phase === "grupos" ? " on" : "")} onClick={() => setPhase("grupos")}>Fase de grupos</button>
         <button className={"g-subtab" + (phase === "16avos" ? " on" : "")} onClick={() => setPhase("16avos")}>16avos de final</button>
@@ -774,7 +796,7 @@ export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResu
             const editable = isAdmin && adminMode;
             return (
               <div className="g-match" key={m.id}>
-                <div className="g-team r"><div className="g-team-main"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div><span className="g-role">Local</span></div>
+                <div className="g-team r"><div className="g-team-main"><span className="g-tn">{m.home}</span><span className="g-fl">{flag(m.home)}</span></div>{m.phase !== "ko" && <span className="g-role">Local</span>}</div>
                 <div className="g-sb">
                   {editable ? (
                     <>
@@ -786,7 +808,7 @@ export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResu
                     <span className={"g-rscore" + (has ? "" : " none")}>{has ? `${r[0]} : ${r[1]}` : "—"}</span>
                   )}
                 </div>
-                <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div><span className="g-role">Visita</span></div>
+                <div className="g-team"><div className="g-team-main"><span className="g-fl">{flag(m.away)}</span><span className="g-tn">{m.away}</span></div>{m.phase !== "ko" && <span className="g-role">Visita</span>}</div>
               </div>
             );
           })}
