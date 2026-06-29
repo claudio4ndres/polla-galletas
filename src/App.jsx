@@ -79,6 +79,8 @@ function Polla({ session }) {
   const [nameDraft, setNameDraft] = useState("");
   const [tab, setTab] = useState("pred");
   const [picks, setPicks] = useState({});
+  const [picksEt, setPicksEt] = useState({});     // pronóstico del alargue por partido KO
+  const [picksPen, setPicksPen] = useState({});   // pronóstico de los penales por partido KO
   const [results, setResults] = useState({});
   const [koInfo, setKoInfo] = useState({});   // por partido KO: { et:bool, ph:int|null, pa:int|null } (alargue/penales)
   const [board, setBoard] = useState([]);
@@ -95,12 +97,14 @@ function Polla({ session }) {
   useEffect(() => {
     (async () => {
       const [{ data: mine }, resMap, admin, paid] = await Promise.all([
-        supabase.from("predictions").select("picks,name").eq("user_id", user.id).maybeSingle(),
+        supabase.from("predictions").select("picks,name,picks_et,picks_pen").eq("user_id", user.id).maybeSingle(),
         loadResults(),
         checkAdmin(myEmail),
         loadPayments(),
       ]);
       if (mine?.picks) setPicks(mine.picks);
+      if (mine?.picks_et) setPicksEt(mine.picks_et);
+      if (mine?.picks_pen) setPicksPen(mine.picks_pen);
       // Respeta el nombre guardado solo si es un nombre de verdad (no un correo); así no pisa lo que cada uno editó.
       if (mine?.name && !mine.name.includes("@")) setDisplayName(mine.name);
       setResults(resMap.map);
@@ -121,6 +125,19 @@ function Polla({ session }) {
       user_id: user.id, name: displayName, picks, updated_at: new Date().toISOString(),
     });
     show(error ? "Error al guardar" : "✓ Pronósticos guardados");
+  };
+
+  // Pronóstico en vivo del alargue / penales: se guarda al instante (la ventana dura 5 min).
+  const saveStage = (col, obj) => supabase.from("predictions").upsert({ user_id: user.id, name: displayName, [col]: obj, updated_at: new Date().toISOString() });
+  const setEtPick = (mid, idx, val) => {
+    const v = val === "" ? "" : Math.max(0, Math.min(20, parseInt(val) || 0));
+    const c = picksEt[mid] ? [...picksEt[mid]] : ["", ""]; c[idx] = v;
+    const next = { ...picksEt, [mid]: c }; setPicksEt(next); saveStage("picks_et", next);
+  };
+  const setPenPick = (mid, idx, val) => {
+    const v = val === "" ? "" : Math.max(0, Math.min(20, parseInt(val) || 0));
+    const c = picksPen[mid] ? [...picksPen[mid]] : ["", ""]; c[idx] = v;
+    const next = { ...picksPen, [mid]: c }; setPicksPen(next); saveStage("picks_pen", next);
   };
 
   // "Prueba tu suerte": rellena los 72 marcadores al azar (sin guardar todavía).
@@ -168,19 +185,29 @@ function Polla({ session }) {
     }
   };
 
-  // Alargue / penales de un partido de eliminación (requiere marcador ya cargado). patch: {et}|{ph}|{pa}.
-  const setKoField = async (mid, patch) => {
-    const cur = koInfo[mid] || { et: false, ph: null, pa: null };
-    const next = { ...cur, ...patch };
-    setKoInfo({ ...koInfo, [mid]: next });
-    await supabase.from("results")
-      .update({ went_to_et: next.et, pen_home: next.ph, pen_away: next.pa, updated_at: new Date().toISOString() })
-      .eq("match_id", mid);
+  // Eliminación por etapas (requiere marcador 90' ya cargado). Actualiza `results` + estado local koInfo.
+  const patchKo = async (mid, dbPatch, koPatch) => {
+    setKoInfo((prev) => ({ ...prev, [mid]: { ...(prev[mid] || {}), ...koPatch } }));
+    await supabase.from("results").update({ ...dbPatch, updated_at: new Date().toISOString() }).eq("match_id", mid);
+  };
+  const clampScore = (val) => (val === "" ? null : Math.max(0, Math.min(20, parseInt(val) || 0)));
+  // Abre la ventana en vivo de alargue (timer 5 min arranca en et_open_at) y marca que fue a alargue.
+  const openEtWindow = (mid) => { const iso = new Date().toISOString(); return patchKo(mid, { et_open_at: iso, went_to_et: true }, { etOpenAt: iso, et: true }); };
+  const setEtResult = (mid, idx, val) => {
+    const v = clampScore(val), cur = koInfo[mid] || {};
+    const eh = idx === 0 ? v : (cur.eh ?? null), ea = idx === 1 ? v : (cur.ea ?? null);
+    return patchKo(mid, { et_home: eh, et_away: ea }, { eh, ea });
+  };
+  const openPenWindow = (mid) => { const iso = new Date().toISOString(); return patchKo(mid, { pen_open_at: iso }, { penOpenAt: iso }); };
+  const setPenResult = (mid, idx, val) => {
+    const v = clampScore(val), cur = koInfo[mid] || {};
+    const ph = idx === 0 ? v : (cur.ph ?? null), pa = idx === 1 ? v : (cur.pa ?? null);
+    return patchKo(mid, { pen_home: ph, pen_away: pa }, { ph, pa });
   };
 
   const loadBoard = useCallback(async () => {
     const [{ data: preds }, resMap] = await Promise.all([
-      supabase.from("predictions").select("user_id,name,picks"),
+      supabase.from("predictions").select("user_id,name,picks,picks_et,picks_pen"),
       loadResults(),
     ]);
     setResults(resMap.map);
@@ -195,6 +222,11 @@ function Polla({ session }) {
         const pts = scorePick(picks[m.id], r);
         const b = m.phase === "ko" ? k : g;
         b.total += pts; if (pts === 3) b.exact++; if (pts > 0) b.hits++;
+        if (m.phase === "ko") {                                  // etapas en vivo: alargue + penales
+          const ki = resMap.ko[m.id];
+          if (ki && ki.eh != null && ki.ea != null) { const e = stageScore(p.picks_et?.[m.id], [ki.eh, ki.ea]); k.total += e; if (e > 0) k.hits++; }
+          if (ki && ki.ph != null && ki.pa != null) { const e = stageScore(p.picks_pen?.[m.id], [ki.ph, ki.pa]); k.total += e; if (e > 0) k.hits++; }
+        }
       }
       const koPlayed = Object.keys(picks).some((id) => id[0] === "k"); // ¿pronosticó algún 16avo?
       return { id: p.user_id, name: prettyName(p.name), grupos: g, ko: k, koPlayed };
@@ -292,12 +324,13 @@ function Polla({ session }) {
         <button className={"g-tab" + (tab === "res" ? " on" : "")} onClick={() => setTab("res")}>Resultados</button>
       </div>
 
-      {tab === "pred" && <PredView picks={picks} results={results} koInfo={koInfo} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} allPreds={allPreds} myId={user.id} />}
+      {tab === "pred" && <PredView picks={picks} results={results} koInfo={koInfo} picksEt={picksEt} picksPen={picksPen} setEtPick={setEtPick} setPenPick={setPenPick} setPick={setPick} savePicks={savePicks} fillRandom={fillRandom} amPaid={amPaid} allPreds={allPreds} myId={user.id} />}
       {tab === "tabla" && <BoardView board={board} myId={user.id} reload={loadBoard} paidSet={paidSet} />}
       {tab === "premios" && <PremiosView paidCount={paidSet.size} />}
       {tab === "res" && (
         <ResultsView results={results} koInfo={koInfo} isAdmin={isAdmin} adminMode={adminMode}
-          setAdminMode={setAdminMode} setResult={setResult} setKoField={setKoField}
+          setAdminMode={setAdminMode} setResult={setResult}
+          openEtWindow={openEtWindow} setEtResult={setEtResult} openPenWindow={openPenWindow} setPenResult={setPenResult}
           players={players} paidSet={paidSet} togglePaid={togglePaid} />
       )}
 
@@ -309,11 +342,14 @@ function Polla({ session }) {
 
 /* ============================ HELPERS SUPABASE ============================ */
 async function loadResults() {
-  const { data } = await supabase.from("results").select("match_id,home,away,went_to_et,pen_home,pen_away");
+  const { data } = await supabase.from("results").select("match_id,home,away,went_to_et,et_home,et_away,pen_home,pen_away,et_open_at,pen_open_at");
   const map = {}, ko = {};
   (data || []).forEach((r) => {
     map[r.match_id] = [r.home, r.away];
-    ko[r.match_id] = { et: !!r.went_to_et, ph: r.pen_home, pa: r.pen_away };
+    ko[r.match_id] = {
+      et: !!r.went_to_et, eh: r.et_home, ea: r.et_away, ph: r.pen_home, pa: r.pen_away,
+      etOpenAt: r.et_open_at, penOpenAt: r.pen_open_at,
+    };
   });
   return { map, ko };
 }
@@ -417,6 +453,15 @@ function fmtLeft(ms) {
 
 // Clase de color de un puntaje (misma escala de calor que el resto: verde/naranja/dorado/gris).
 const ptsCls = (pts) => (pts === 3 ? "won" : pts === 2 ? "f" : pts === 1 ? "o" : "z");
+const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+// Puntaje de una etapa de eliminación (alargue/penales): +2 exacto, +1 acierta el ganador.
+function stageScore(pick, res) {
+  if (!pick || !res || pick[0] === "" || pick[1] === "" || res[0] == null || res[1] == null) return 0;
+  const ph = +pick[0], pa = +pick[1], rh = +res[0], ra = +res[1];
+  if (ph === rh && pa === ra) return 2;
+  if (Math.sign(ph - pa) === Math.sign(rh - ra)) return 1;
+  return 0;
+}
 
 // Arma la lista de pronósticos de todos para un partido cerrado: nombre, marcador y, si ya hay
 // resultado, los puntos coloreados. Ordena por puntaje (con resultado) o por nombre (sin resultado aún).
@@ -438,17 +483,21 @@ function buildOthers(allPreds, mid, res, myId) {
   return rows;
 }
 
-// Quién avanza en un partido de eliminación: ganador del marcador, o ganador de los penales si fue empate.
+// Quién avanza en eliminación, por etapas: marcador 90' → alargue → penales.
 function koAdvancer(m, r, ko) {
   if (!r || r[0] === "" || r[1] === "") return null;
   const h = +r[0], a = +r[1];
   if (h > a) return m.home;
-  if (a > h) return m.away;
-  if (ko && ko.ph != null && ko.pa != null && ko.ph !== "" && ko.pa !== "") {
+  if (a > h) return m.away;                                   // 90' decisivo
+  if (ko && ko.eh != null && ko.ea != null) {                 // empate 90' → alargue
+    if (+ko.eh > +ko.ea) return m.home;
+    if (+ko.ea > +ko.eh) return m.away;
+  }
+  if (ko && ko.ph != null && ko.pa != null) {                 // empate alargue → penales
     if (+ko.ph > +ko.pa) return m.home;
     if (+ko.pa > +ko.ph) return m.away;
   }
-  return null; // empate sin penales cargados → indefinido todavía
+  return null; // todavía indefinido
 }
 
 // Panel de "probabilidad por goles" de un partido próximo (modelo Poisson en predict.js).
@@ -491,8 +540,11 @@ function ProbPanel({ pred, home, away, onUse }) {
   );
 }
 
-export function PredView({ picks, results, koInfo, setPick, savePicks, fillRandom, amPaid, allPreds, myId }) {
+export function PredView({ picks, results, koInfo, picksEt, picksPen, setEtPick, setPenPick, setPick, savePicks, fillRandom, amPaid, allPreds, myId }) {
   const now = Date.now();
+  const LIVE_MS = 5 * 60 * 1000;   // la ventana en vivo de alargue/penales dura 5 min
+  const liveOpen = (ts) => ts && now - new Date(ts).getTime() < LIVE_MS;
+  const anyLive = Object.values(koInfo || {}).some((k) => k && (liveOpen(k.etOpenAt) || liveOpen(k.penOpenAt)));
   // Cierre por partido: editable hasta 30 min antes de su inicio; desde ahí, cerrado.
   const openMatches = MATCHES.filter((m) => !isMatchLocked(m, now)).sort((a, b) => a.kickoff - b.kickoff);
   const nextMatch = openMatches[0] || null;        // el próximo en cerrar
@@ -519,6 +571,11 @@ export function PredView({ picks, results, koInfo, setPick, savePicks, fillRando
     const id = setInterval(() => forceTick((t) => t + 1), 30000);
     return () => clearInterval(id);
   }, []);
+  useEffect(() => {                                // mientras haya ventana en vivo, tickea cada segundo (contador)
+    if (!anyLive) return;
+    const id = setInterval(() => forceTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [anyLive]);
   const T = INSCRIPCION.transferencia;
   const copiarDatos = async () => {
     const txt = `Titular: ${T.titular}\nRUT: ${T.rut}\n${T.banco} · ${T.tipo}\nCuenta: ${T.cuenta}\nCorreo: ${T.email}`;
@@ -582,7 +639,9 @@ export function PredView({ picks, results, koInfo, setPick, savePicks, fillRando
           {expanded && sec.matches.map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
-            const ko = koInfo[m.id]; const koPen = ko && ko.ph != null && ko.pa != null; const koAdv = m.phase === "ko" && r ? koAdvancer(m, r, ko) : null;
+            const ko = koInfo[m.id]; const koEt = ko && ko.eh != null && ko.ea != null; const koPen = ko && ko.ph != null && ko.pa != null; const koAdv = m.phase === "ko" && r ? koAdvancer(m, r, ko) : null;
+            const etOpen = m.phase === "ko" && liveOpen(ko?.etOpenAt); const penOpen = m.phase === "ko" && liveOpen(ko?.penOpenAt);
+            const pe = picksEt[m.id] || ["", ""]; const pp = picksPen[m.id] || ["", ""];
             const matchLocked = !!r || isMatchLocked(m, now);    // bloqueado si tiene resultado o faltan ≤30 min para empezar
             const timeLeft = m.kickoff - LOCK_BEFORE_MS - now;   // ms hasta que cierre la edición
             // Listado de apuestas de los demás: en eliminación se muestra SIEMPRE (decisión del usuario);
@@ -638,7 +697,31 @@ export function PredView({ picks, results, koInfo, setPick, savePicks, fillRando
                     onClick={() => { setOpenProb((cur) => (cur === m.id ? null : m.id)); setOpenPanel(null); }}
                   >{probOpen ? "Ocultar probabilidad" : "Probabilidad de goles"}</button>
                 )}
-                {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{koPen ? ` · Penales ${ko.ph}–${ko.pa}` : ko?.et ? " · Tras alargue" : ""}{koAdv ? ` · ${koAdv} avanza` : ""}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
+                {r && <div className={"g-note fin" + (exact ? " won" : "")}>Final {r[0]}–{r[1]}{koEt ? ` · Alargue ${ko.eh}–${ko.ea}` : ""}{koPen ? ` · Penales ${ko.ph}–${ko.pa}` : ""}{koAdv ? ` · ${koAdv} avanza` : ""}{exact ? <> · <span className="g-exact">Exacto</span></> : ""}</div>}
+                {etOpen && (
+                  <div className="g-live">
+                    <div className="g-live-h"><span className="g-live-t">¡Predecí el alargue!</span><span className="g-live-c">{mmss(LIVE_MS - (now - new Date(ko.etOpenAt).getTime()))}</span></div>
+                    <div className="g-live-row">
+                      <span className="g-live-tn">{m.home}</span>
+                      <input className="g-sc" type="number" inputMode="numeric" value={pe[0]} aria-label={`alargue ${m.home}`} onChange={(e) => setEtPick(m.id, 0, e.target.value)} />
+                      <span className="g-colon">:</span>
+                      <input className="g-sc" type="number" inputMode="numeric" value={pe[1]} aria-label={`alargue ${m.away}`} onChange={(e) => setEtPick(m.id, 1, e.target.value)} />
+                      <span className="g-live-tn">{m.away}</span>
+                    </div>
+                  </div>
+                )}
+                {penOpen && (
+                  <div className="g-live pen">
+                    <div className="g-live-h"><span className="g-live-t">¡Predecí los penales!</span><span className="g-live-c">{mmss(LIVE_MS - (now - new Date(ko.penOpenAt).getTime()))}</span></div>
+                    <div className="g-live-row">
+                      <span className="g-live-tn">{m.home}</span>
+                      <input className="g-sc" type="number" inputMode="numeric" value={pp[0]} aria-label={`penales ${m.home}`} onChange={(e) => setPenPick(m.id, 0, e.target.value)} />
+                      <span className="g-colon">:</span>
+                      <input className="g-sc" type="number" inputMode="numeric" value={pp[1]} aria-label={`penales ${m.away}`} onChange={(e) => setPenPick(m.id, 1, e.target.value)} />
+                      <span className="g-live-tn">{m.away}</span>
+                    </div>
+                  </div>
+                )}
                 {others && (
                   <div className="g-others">
                     <div className="g-others-t">{!r && matchLocked ? "Pronósticos · partido en juego" : "Pronósticos de los participantes"}</div>
@@ -777,7 +860,7 @@ function ResultInput({ value, onCommit }) {
   );
 }
 
-export function ResultsView({ results, koInfo, isAdmin, adminMode, setAdminMode, setResult, setKoField, players, paidSet, togglePaid }) {
+export function ResultsView({ results, koInfo, isAdmin, adminMode, setAdminMode, setResult, openEtWindow, setEtResult, openPenWindow, setPenResult, players, paidSet, togglePaid }) {
   const count = Object.keys(results).length;
   // Secciones: los 12 grupos y después las rondas de eliminación.
   const sections = [
@@ -837,11 +920,13 @@ export function ResultsView({ results, koInfo, isAdmin, adminMode, setAdminMode,
             const r = results[m.id] || ["", ""];
             const has = !!results[m.id];
             const editable = isAdmin && adminMode;
-            const ko = koInfo[m.id];
-            const isDraw = has && r[0] !== "" && r[1] !== "" && +r[0] === +r[1];
+            const ko = koInfo[m.id] || {};
+            const draw90 = has && r[0] !== "" && r[1] !== "" && +r[0] === +r[1];
+            const hasEt = ko.eh != null && ko.ea != null;
+            const etDraw = hasEt && +ko.eh === +ko.ea;
+            const hasPen = ko.ph != null && ko.pa != null;
             const adv = koAdvancer(m, r, ko);
-            const hasPen = ko && ko.ph != null && ko.pa != null;
-            const showKo = m.phase === "ko" && has && (editable || ko?.et || hasPen);
+            const showKo = m.phase === "ko" && has && (draw90 || ko.et || hasEt || hasPen);
             return (
               <React.Fragment key={m.id}>
               <div className={"g-match" + (showKo ? " koopen" : "")}>
@@ -863,20 +948,29 @@ export function ResultsView({ results, koInfo, isAdmin, adminMode, setAdminMode,
                 <div className="g-koedit">
                   {editable ? (
                     <>
-                      <button type="button" className={"g-kotoggle" + (ko?.et ? " on" : "")} onClick={() => setKoField(m.id, { et: !ko?.et })}>Alargue</button>
-                      {isDraw && (
-                        <span className="g-kopen">
-                          <span className="g-kopen-l">Penales</span>
-                          <ResultInput value={ko?.ph ?? ""} onCommit={(v) => setKoField(m.id, { ph: v === "" ? null : +v })} />
+                      {!ko.etOpenAt ? (
+                        <button type="button" className="g-kobtn" onClick={() => openEtWindow(m.id)}>Abrir alargue</button>
+                      ) : (
+                        <span className="g-kostage"><span className="g-kostage-l">Alargue</span>
+                          <ResultInput value={ko.eh ?? ""} onCommit={(v) => setEtResult(m.id, 0, v)} />
                           <span className="g-colon">:</span>
-                          <ResultInput value={ko?.pa ?? ""} onCommit={(v) => setKoField(m.id, { pa: v === "" ? null : +v })} />
+                          <ResultInput value={ko.ea ?? ""} onCommit={(v) => setEtResult(m.id, 1, v)} />
                         </span>
                       )}
+                      {ko.etOpenAt && etDraw && (!ko.penOpenAt ? (
+                        <button type="button" className="g-kobtn" onClick={() => openPenWindow(m.id)}>Abrir penales</button>
+                      ) : (
+                        <span className="g-kostage"><span className="g-kostage-l">Penales</span>
+                          <ResultInput value={ko.ph ?? ""} onCommit={(v) => setPenResult(m.id, 0, v)} />
+                          <span className="g-colon">:</span>
+                          <ResultInput value={ko.pa ?? ""} onCommit={(v) => setPenResult(m.id, 1, v)} />
+                        </span>
+                      ))}
                       {adv && <span className="g-koadv">{adv} avanza</span>}
                     </>
                   ) : (
                     <span className="g-kosum">
-                      {hasPen ? `Penales ${ko.ph}–${ko.pa}` : "Tras alargue"}{adv ? ` · ${adv} avanza` : ""}
+                      {hasEt ? `Alargue ${ko.eh}–${ko.ea}` : ""}{hasPen ? ` · Penales ${ko.ph}–${ko.pa}` : ""}{adv ? ` · ${adv} avanza` : ""}
                     </span>
                   )}
                 </div>

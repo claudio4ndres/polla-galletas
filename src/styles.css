@@ -83,6 +83,23 @@ body { background: #070e18; }
 .g-kopen-l{font-family:'Archivo';font-weight:700;font-size:11px;letter-spacing:.5px;color:var(--mut);text-transform:uppercase;}
 .g-koadv{font-family:'Archivo';font-weight:700;font-size:12px;color:var(--green);}
 .g-kosum{font-family:'Archivo';font-weight:700;font-size:12px;color:var(--mut);}
+/* Etapas en vivo del organizador: botones "Abrir alargue/penales" + inputs de etapa */
+.g-kobtn{background:rgba(46,201,240,.12);border:1px solid var(--cyan);color:var(--cyan);font-family:'Archivo';font-weight:700;
+  font-size:12px;border-radius:9px;padding:7px 14px;cursor:pointer;transition:.15s;}
+.g-kobtn:hover{background:rgba(46,201,240,.22);}
+.g-kostage{display:inline-flex;align-items:center;gap:6px;}
+.g-kostage-l{font-family:'Archivo';font-weight:700;font-size:11px;letter-spacing:.5px;color:var(--mut);text-transform:uppercase;}
+/* Ventana EN VIVO del jugador: predecir alargue / penales con cuenta regresiva (5 min) */
+.g-live{margin-top:10px;background:linear-gradient(180deg,rgba(46,201,240,.12),rgba(46,201,240,.04));border:1px solid var(--cyan);
+  border-radius:12px;padding:11px 13px;animation:livePulse 2.4s ease-in-out infinite;}
+.g-live.pen{background:linear-gradient(180deg,rgba(255,125,31,.12),rgba(255,125,31,.04));border-color:var(--orange);}
+.g-live-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.g-live-t{font-family:'Anton';font-size:14px;letter-spacing:.5px;color:var(--cyan);}
+.g-live.pen .g-live-t{color:var(--orange);}
+.g-live-c{font-family:'Anton';font-size:16px;color:var(--txt);background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:2px 9px;min-width:50px;text-align:center;}
+.g-live-row{display:flex;align-items:center;justify-content:center;gap:9px;}
+.g-live-tn{font-family:'Archivo';font-weight:700;font-size:12px;color:var(--txt);}
+@keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(46,201,240,.22);}50%{box-shadow:0 0 13px 1px rgba(46,201,240,.16);}}
 .g-match:last-child{border-bottom:0;}
 /* Lado derecho (columna 3): equipo visitante pegado al marcador + el +pts y el botón al extremo. */
 .g-right{display:flex;align-items:center;gap:8px;min-width:0;}

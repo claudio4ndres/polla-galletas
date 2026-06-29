@@ -104,6 +104,16 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
   recargan resultados/alargue/penales/tabla en vivo sin refrescar. Estado `koInfo`, setter `setKoField`,
   carga vía `loadResults()` que ahora devuelve `{ map, ko }`. Realtime hay que activarlo en la tabla
   (ya hecho: `results` está en la publicación `supabase_realtime`).
+- **Eliminación EN VIVO por etapas** (upgrade del punto anterior): el organizador abre **ventanas en
+  vivo** — botón **"Abrir alargue"** (set `results.et_open_at`) y **"Abrir penales"** (`pen_open_at`) — y
+  carga el resultado de cada etapa (`et_home/et_away`, `pen_home/pen_away`). Por Realtime, a los jugadores
+  conectados les aparece en Pronósticos un panel con **cuenta regresiva de 5 min** para predecir el
+  alargue/penales (`predictions.picks_et`/`picks_pen`; se guardan al instante). Puntaje por etapa:
+  `stageScore` (+2 exacto / +1 acierta ganador), sumado al **ranking de 16avos** en `loadBoard`. Setters
+  `openEtWindow`/`setEtResult`/`openPenWindow`/`setPenResult` (organizador) y `setEtPick`/`setPenPick`
+  (jugador); helpers `koAdvancer` (90'→alargue→penales), `stageScore`, `mmss`; estado `koInfo`/`picksEt`/
+  `picksPen`; ticker de 1 s en `PredView` mientras hay ventana abierta. **Pendiente:** refuerzo
+  server-side del cierre (hoy lo cierra el timer del front; falta un trigger que rechace guardados tarde).
 
 ## Datos del torneo
 - Fixture: fase de grupos del Mundial 2026 (sorteo 5-dic-2025), 12 grupos, 72 partidos, todos en junio.

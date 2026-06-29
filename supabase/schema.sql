@@ -9,24 +9,37 @@
 create table if not exists public.predictions (
   user_id    uuid primary key references auth.users(id) on delete cascade,
   name       text not null,
-  picks      jsonb not null default '{}'::jsonb,   -- { "m0": [2,1], "m1": [0,0], ... }
+  picks      jsonb not null default '{}'::jsonb,   -- { "m0": [2,1], "m1": [0,0], ... } (marcador 90/120)
+  picks_et   jsonb not null default '{}'::jsonb,   -- pronóstico del alargue por partido KO (ventana en vivo)
+  picks_pen  jsonb not null default '{}'::jsonb,   -- pronóstico de los penales por partido KO (ventana en vivo)
   updated_at timestamptz not null default now()
 );
+-- Para bases ya creadas (idempotente):
+alter table public.predictions add column if not exists picks_et  jsonb not null default '{}'::jsonb;
+alter table public.predictions add column if not exists picks_pen jsonb not null default '{}'::jsonb;
 
 -- Resultados reales de cada partido (los carga el organizador).
 create table if not exists public.results (
   match_id   text primary key,                     -- "m0" ... "m71" (grupos), "k0" ... (eliminación)
-  home       int  not null,                         -- marcador de los 90/120 min (lo que puntúa)
-  away       int  not null,
-  went_to_et boolean default false,                 -- eliminación: fue a alargue (informativo)
-  pen_home   int,                                   -- eliminación: penales convertidos local
-  pen_away   int,                                   -- eliminación: penales convertidos visita
-  updated_at timestamptz not null default now()
+  home        int  not null,                        -- marcador de los 90' (lo que puntúa el pronóstico base)
+  away        int  not null,
+  went_to_et  boolean default false,                -- fue a alargue
+  et_home     int,                                  -- resultado del alargue (120'), local
+  et_away     int,                                  -- resultado del alargue (120'), visita
+  pen_home    int,                                  -- penales convertidos, local
+  pen_away    int,                                  -- penales convertidos, visita
+  et_open_at  timestamptz,                          -- cuándo se abrió la ventana en vivo de alargue (timer 5 min)
+  pen_open_at timestamptz,                          -- cuándo se abrió la ventana en vivo de penales
+  updated_at  timestamptz not null default now()
 );
 -- Para bases ya creadas (idempotente): agrega las columnas de eliminación si faltan.
-alter table public.results add column if not exists went_to_et boolean default false;
-alter table public.results add column if not exists pen_home int;
-alter table public.results add column if not exists pen_away int;
+alter table public.results add column if not exists went_to_et  boolean default false;
+alter table public.results add column if not exists et_home     int;
+alter table public.results add column if not exists et_away     int;
+alter table public.results add column if not exists pen_home    int;
+alter table public.results add column if not exists pen_away    int;
+alter table public.results add column if not exists et_open_at  timestamptz;
+alter table public.results add column if not exists pen_open_at timestamptz;
 -- Tiempo real: los cambios en `results` (organizador o sync) llegan en vivo a todos por Supabase Realtime.
 do $$ begin
   if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='results') then
