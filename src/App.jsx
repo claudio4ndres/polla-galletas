@@ -172,16 +172,20 @@ function Polla({ session }) {
       loadResults(),
     ]);
     setResults(resMap);
+    // Puntaje separado por fase: la fase de grupos y los 16avos son rankings distintos
+    // (en eliminación pueden jugar otros). La Tabla deja elegir cuál ver. BoardView ordena.
     const rows = (preds || []).map((p) => {
-      let total = 0, exact = 0, hits = 0;
+      const picks = p.picks || {};
+      const g = { total: 0, exact: 0, hits: 0 }, k = { total: 0, exact: 0, hits: 0 };
       for (const m of MATCHES) {
         const r = resMap[m.id]; if (!r) continue;
-        const pts = scorePick(p.picks?.[m.id], r);
-        total += pts; if (pts === 3) exact++; if (pts > 0) hits++;
+        const pts = scorePick(picks[m.id], r);
+        const b = m.phase === "ko" ? k : g;
+        b.total += pts; if (pts === 3) b.exact++; if (pts > 0) b.hits++;
       }
-      return { id: p.user_id, name: prettyName(p.name), total, exact, hits };
+      const koPlayed = Object.keys(picks).some((id) => id[0] === "k"); // ¿pronosticó algún 16avo?
+      return { id: p.user_id, name: prettyName(p.name), grupos: g, ko: k, koPlayed };
     });
-    rows.sort((a, b) => b.total - a.total || b.exact - a.exact || a.name.localeCompare(b.name));
     setBoard(rows);
   }, []);
 
@@ -613,21 +617,33 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
 }
 
 function BoardView({ board, myId, reload, paidSet }) {
+  const [phase, setPhase] = useState("grupos");   // "grupos" | "16avos" — rankings separados por fase
+  const isKo = phase === "16avos";
+  // Puntaje de la fase elegida. En 16avos solo aparece quien lo haya pronosticado (es ronda nueva).
+  let rows = board.map((r) => ({ ...r, s: isKo ? r.ko : r.grupos }));
+  if (isKo) rows = rows.filter((r) => r.koPlayed);
+  rows = rows.slice().sort((a, b) => b.s.total - a.s.total || b.s.exact - a.s.exact || a.name.localeCompare(b.name));
   return (
     <>
       <div className="g-card g-lhead">
         <div className="g-lt">🏆 Tabla</div>
         <button className="g-btn ghost" style={{ width: "auto", padding: "11px 16px" }} onClick={reload}>↻ Refrescar</button>
       </div>
-      {board.length === 0 ? (
-        <div className="g-card"><div className="g-empty">Todavía nadie cargó pronósticos.<br />Comparte el link con las Galletas para que entren.</div></div>
+      <div className="g-subtabs">
+        <button className={"g-subtab" + (phase === "grupos" ? " on" : "")} onClick={() => setPhase("grupos")}>Fase de grupos</button>
+        <button className={"g-subtab" + (phase === "16avos" ? " on" : "")} onClick={() => setPhase("16avos")}>16avos de final</button>
+      </div>
+      {rows.length === 0 ? (
+        <div className="g-card"><div className="g-empty">{isKo
+          ? <>Nadie pronosticó los 16avos todavía.<br />Es una ronda nueva: el que quiera jugar carga sus marcadores.</>
+          : <>Todavía nadie cargó pronósticos.<br />Comparte el link con las Galletas para que entren.</>}</div></div>
       ) : (
         <div className="g-card">
-          {board.map((row, i) => (
+          {rows.map((row, i) => (
             <div className={"g-row" + (i === 0 ? " p1" : "") + (row.id === myId ? " me" : "")} key={row.id}>
               <div className={"g-rk" + (i === 0 ? " t1" : i === 1 ? " t2" : i === 2 ? " t3" : "")}>{i + 1}</div>
-              <div className="g-rn"><b>{row.name}{row.id === myId ? " (tú)" : ""}{paidSet?.has(row.id) && <span className="g-prem mini" title="Inscripción pagada">★</span>}</b><small>{row.exact} exactos · {row.hits} aciertos</small></div>
-              <div className="g-rt">{row.total}<small>pts</small></div>
+              <div className="g-rn"><b>{row.name}{row.id === myId ? " (tú)" : ""}{paidSet?.has(row.id) && <span className="g-prem mini" title="Inscripción pagada">★</span>}</b><small>{row.s.exact} exactos · {row.s.hits} aciertos</small></div>
+              <div className="g-rt">{row.s.total}<small>pts</small></div>
             </div>
           ))}
         </div>

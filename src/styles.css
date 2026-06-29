@@ -181,6 +181,12 @@ body { background: #070e18; }
 
 .g-lhead{display:flex;align-items:center;justify-content:space-between;}
 .g-lt{font-family:'Anton';font-size:21px;display:flex;align-items:center;gap:9px;}
+/* Selector de fase dentro de la Tabla (fase de grupos / 16avos) */
+.g-subtabs{display:flex;gap:6px;margin:0 0 12px;}
+.g-subtab{flex:1;background:var(--ink2);border:1px solid var(--line);color:var(--mut);font-family:'Archivo';font-weight:700;
+  font-size:12px;letter-spacing:.3px;border-radius:11px;padding:10px 8px;cursor:pointer;transition:.15s;}
+.g-subtab:hover{color:var(--txt);}
+.g-subtab.on{color:var(--cyan);border-color:var(--cyan);background:rgba(46,201,240,.1);}
 .g-row{display:flex;align-items:center;gap:13px;padding:14px 13px;border-radius:14px;margin-bottom:9px;background:var(--ink2);border:1px solid var(--line);}
 .g-row.me{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset,0 0 22px rgba(46,201,240,.12);}
 .g-row.p1{background:linear-gradient(100deg,rgba(227,169,72,.16),var(--ink2));border-color:rgba(227,169,72,.5);}
