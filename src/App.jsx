@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 import {
-  MATCHES, GROUPS, flag, scorePick, isMatchLocked, LOCK_BEFORE_MS, INSCRIPCION, PREMIOS, montoNumber,
+  MATCHES, GROUPS, KO_ROUNDS, flag, scorePick, isMatchLocked, LOCK_BEFORE_MS, INSCRIPCION, PREMIOS, montoNumber,
 } from "./data";
 import { computeStats, predictMatch } from "./predict";
 
@@ -458,7 +458,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
   let cd = null;
   if (nextMatch) {
     const mm = nextMatch;
-    cd = { target: mm.kickoff - LOCK_BEFORE_MS, title: "Próximo cierre", match: mm, editable: true, subText: <>Cierra <b className="c">{mm.home} vs {mm.away}</b> ({mm.day} jun · {mm.time}) — 30 min antes de empezar.</> };
+    cd = { target: mm.kickoff - LOCK_BEFORE_MS, title: "Próximo cierre", match: mm, editable: true, subText: <>Cierra <b className="c">{mm.home} vs {mm.away}</b> ({mm.dateLabel} · {mm.time}) — 30 min antes de empezar.</> };
   }
   const [, forceTick] = useState(0);               // re-render al cerrar cada partido
   const [copied, setCopied] = useState(false);
@@ -466,6 +466,11 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
   const [openProb, setOpenProb] = useState(null);   // id del partido cuyo panel "probabilidad por goles" está abierto
   // Stats de los equipos (goles a favor/en contra) a partir de los resultados; se recalcula solo si cambian.
   const probStats = useMemo(() => computeStats(results), [results]);
+  // Secciones de la pantalla: los 12 grupos y, después, las rondas de eliminación.
+  const sections = [
+    ...GROUPS.map((g) => ({ key: g, title: "GRUPO " + g, matches: MATCHES.filter((mm) => mm.group === g) })),
+    ...KO_ROUNDS.map((r) => ({ key: r, title: r === "16avos" ? "16AVOS DE FINAL" : r, matches: MATCHES.filter((mm) => mm.ronda === r) })),
+  ];
   useEffect(() => {                                // refresca el "cierra en…" de cada partido cada 30 s
     const id = setInterval(() => forceTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -520,10 +525,10 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
         )}
       </div>
       <div className="g-tznote">Fecha, hora y estadio de cada partido — en horario de Chile.</div>
-      {GROUPS.map((g) => (
-        <div className="g-card" key={g}>
-          <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>
-          {MATCHES.filter((m) => m.group === g).map((m) => {
+      {sections.map((sec) => (
+        <div className="g-card" key={sec.key}>
+          <div className="g-gline"><span className="g-gtag">{sec.title}</span><span className="g-gbar" /></div>
+          {sec.matches.map((m) => {
             const p = picks[m.id] || ["", ""]; const r = results[m.id]; const pts = scorePick(picks[m.id], r);
             const exact = !!r && pts === 3; const state = r ? (pts === 3 ? " won" : pts === 2 ? " p2" : pts === 1 ? " p1" : " p0") : "";
             const matchLocked = !!r || isMatchLocked(m, now);    // bloqueado si tiene resultado o faltan ≤30 min para empezar
@@ -568,7 +573,7 @@ export function PredView({ picks, results, setPick, savePicks, fillRandom, amPai
                     )}
                   </div>
                 </div>
-                <div className="g-mt">J{m.jornada} · {m.day} jun · {m.time} · {m.venue}</div>
+                <div className="g-mt">{m.roundLabel} · {m.dateLabel} · {m.time} · {m.venue}</div>
                 {!r && (timeLeft <= 0
                   ? <div className="g-lockin closed">Cerrado</div>
                   : <div className={"g-lockin" + (timeLeft < 3600000 ? " soon" : "")}>Cierra en {fmtLeft(timeLeft)}</div>)}
@@ -693,6 +698,11 @@ function ResultInput({ value, onCommit }) {
 
 export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResult, players, paidSet, togglePaid }) {
   const count = Object.keys(results).length;
+  // Secciones: los 12 grupos y después las rondas de eliminación.
+  const sections = [
+    ...GROUPS.map((g) => ({ key: g, title: "GRUPO " + g, matches: MATCHES.filter((mm) => mm.group === g) })),
+    ...KO_ROUNDS.map((r) => ({ key: r, title: r === "16avos" ? "16AVOS DE FINAL" : r, matches: MATCHES.filter((mm) => mm.ronda === r) })),
+  ];
   return (
     <>
       <div className="g-card">
@@ -739,10 +749,10 @@ export function ResultsView({ results, isAdmin, adminMode, setAdminMode, setResu
         </div>
       )}
 
-      {GROUPS.map((g) => (
-        <div className="g-card" key={g}>
-          <div className="g-gline"><span className="g-gtag">GRUPO {g}</span><span className="g-gbar" /></div>
-          {MATCHES.filter((m) => m.group === g).map((m) => {
+      {sections.map((sec) => (
+        <div className="g-card" key={sec.key}>
+          <div className="g-gline"><span className="g-gtag">{sec.title}</span><span className="g-gbar" /></div>
+          {sec.matches.map((m) => {
             const r = results[m.id] || ["", ""];
             const has = !!results[m.id];
             const editable = isAdmin && adminMode;

@@ -71,15 +71,56 @@ const RAW = [
   ["L", 3, 27, "Panamá", "Inglaterra", "17:00", "MET"], ["L", 3, 27, "Croacia", "Ghana", "17:00", "LINC"],
 ];
 
-export const MATCHES = RAW.map((m, i) => {
+// ===================== FASE DE ELIMINACIÓN =====================
+// Ronda de 32 (16avos de final). Cruces oficiales (terminada la fase de grupos).
+// Hora en HORARIO DE CHILE (UTC-4). [ronda, mes(0-idx: 5=jun, 6=jul), día, local, visita, "HH:MM" Chile, código-estadio]
+const RAW_KO = [
+  // Sudáfrica-Canadá (28-jun) se omite a propósito: se jugó antes de habilitar los 16avos, así que no se pronostica ni puntúa.
+  ["16avos", 5, 29, "Brasil", "Japón", "13:00", "NRG"],
+  ["16avos", 5, 29, "Alemania", "Paraguay", "16:30", "GIL"],
+  ["16avos", 5, 29, "Países Bajos", "Marruecos", "21:00", "BBVA"],
+  ["16avos", 5, 30, "Costa de Marfil", "Noruega", "13:00", "ATT"],
+  ["16avos", 5, 30, "Francia", "Suecia", "17:00", "MET"],
+  ["16avos", 5, 30, "México", "Ecuador", "21:00", "AZT"],
+  ["16avos", 6, 1, "Inglaterra", "RD Congo", "12:00", "MBS"],
+  ["16avos", 6, 1, "Bélgica", "Senegal", "16:00", "LUM"],
+  ["16avos", 6, 1, "Estados Unidos", "Bosnia", "20:00", "LEVI"],
+  ["16avos", 6, 2, "España", "Austria", "15:00", "SOFI"],
+  ["16avos", 6, 2, "Portugal", "Croacia", "19:00", "BMO"],
+  ["16avos", 6, 2, "Suiza", "Argelia", "23:00", "BCP"],
+  ["16avos", 6, 3, "Australia", "Egipto", "14:00", "ATT"],
+  ["16avos", 6, 3, "Argentina", "Cabo Verde", "18:00", "HRD"],
+  ["16avos", 6, 3, "Colombia", "Ghana", "21:30", "ARR"],
+];
+
+const MES = { 5: "jun", 6: "jul" };
+
+// Fase de grupos (72 partidos, todo junio).
+const groupMatches = RAW.map((m, i) => {
   const [group, jornada, day, home, away, time, venueCode] = m;
   const [H, M] = time.split(":").map(Number);
-  // Hora guardada en horario de Chile (UTC-4 en junio). UTC = Chile + 4h; Date.UTC normaliza el desborde.
-  const kickoff = Date.UTC(2026, 5, day, H + 4, M, 0);
-  return { id: "m" + i, group, jornada, day, home, away, time, venue: VENUES[venueCode], kickoff };
+  return {
+    id: "m" + i, phase: "grupos", group, jornada, day, mes: 5, home, away, time,
+    roundLabel: "J" + jornada, dateLabel: day + " " + MES[5],
+    venue: VENUES[venueCode], kickoff: Date.UTC(2026, 5, day, H + 4, M, 0),
+  };
+});
+// Fase de eliminación. UTC = Chile + 4h; Date.UTC con el mes correcto (junio/julio).
+const koMatches = RAW_KO.map((m, i) => {
+  const [ronda, mes, day, home, away, time, venueCode] = m;
+  const [H, M] = time.split(":").map(Number);
+  return {
+    id: "k" + i, phase: "ko", ronda, day, mes, home, away, time,
+    roundLabel: ronda, dateLabel: day + " " + MES[mes],
+    venue: VENUES[venueCode], kickoff: Date.UTC(2026, mes, day, H + 4, M, 0),
+  };
 });
 
+export const MATCHES = [...groupMatches, ...koMatches];
+
 export const GROUPS = [..."ABCDEFGHIJKL"];
+// Rondas de eliminación presentes (la UI las muestra como secciones, después de los grupos).
+export const KO_ROUNDS = ["16avos"];
 export const PTS_EXACT = 3, PTS_DIFF = 2, PTS_SIGN = 1;
 
 // ===================== INSCRIPCIÓN / CUOTA DE PARTICIPACIÓN =====================

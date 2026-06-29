@@ -87,7 +87,11 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - Fixture: fase de grupos del Mundial 2026 (sorteo 5-dic-2025), 12 grupos, 72 partidos, todos en junio.
 - Las selecciones de repesca YA están definidas (play-offs 31-mar-2026) y reemplazadas en `data.js`:
   Chequia (Grupo A), Bosnia (B), Turquía (D), Suecia (F), RD Congo (K), Irak (I).
-- Falta la **fase de eliminación** (de 16avos a la final): agregar cuando se conozcan los cruces.
+- **Fase de eliminación:** los **16avos de final** (ronda de 32, 16 partidos, 28-jun a 3-jul) ya están
+  cargados en `data.js` (`RAW_KO` → `koMatches`, ids `k0..k15`, `phase:"ko"`, `ronda:"16avos"`). Cada
+  match de eliminación trae `mes` (5=jun/6=jul), `roundLabel` y `dateLabel` (la UI ya no asume "jun").
+  `MATCHES` = grupos + KO; `KO_ROUNDS` lista las rondas para que la UI las muestre como sección aparte.
+  Falta agregar octavos → final cuando se definan esos cruces (mismo patrón: ampliar `RAW_KO` y `KO_ROUNDS`).
 
 ## Branding
 - Tema oscuro tipo esports sacado del logo real: cian eléctrico `#2ec9f0`, naranja fuego `#ff7d1f`,
@@ -110,7 +114,7 @@ posiciones se calcula sola. Un organizador carga los resultados reales.
 - **Commits**: en español, descriptivos del "por qué". **Sin firma de IA** (no `Co-Authored-By`).
 
 ## Ideas / TODO
-- [ ] Fase de eliminación (round of 32 → final) cuando se definan los cruces.
+- [x] **16avos de final** (ronda de 32) cargados en `data.js`. Falta octavos → final cuando se definan los cruces.
 - [x] Definir `INSCRIPCION.monto` (fijado en `$10.000` CLP; `montoNumber` lo deriva). Hecho.
 - [x] Pantalla Premios con reparto del pozo entre los primeros (60/30/10), editable en `PREMIOS`. Hecho.
 - [ ] Opcional: confirmación automática de la transferencia (hoy el organizador marca a mano quién pagó).
